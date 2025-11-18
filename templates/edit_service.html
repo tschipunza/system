@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Service Record{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">✏️ Edit Service Record</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('edit_service', service_id=service.id) }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Vehicle:</strong></label>
+                            <p>{{ service.vehicle_number }} - {{ service.make }} {{ service.model }}</p>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="service_type" class="form-label">Service Type *</label>
+                                <select class="form-select" id="service_type" name="service_type" required>
+                                    <option value="Oil Change" {% if service.service_type == 'Oil Change' %}selected{% endif %}>Oil Change</option>
+                                    <option value="Tire Rotation" {% if service.service_type == 'Tire Rotation' %}selected{% endif %}>Tire Rotation</option>
+                                    <option value="Brake Service" {% if service.service_type == 'Brake Service' %}selected{% endif %}>Brake Service</option>
+                                    <option value="Engine Tune-up" {% if service.service_type == 'Engine Tune-up' %}selected{% endif %}>Engine Tune-up</option>
+                                    <option value="Transmission Service" {% if service.service_type == 'Transmission Service' %}selected{% endif %}>Transmission Service</option>
+                                    <option value="Battery Replacement" {% if service.service_type == 'Battery Replacement' %}selected{% endif %}>Battery Replacement</option>
+                                    <option value="Air Filter Replacement" {% if service.service_type == 'Air Filter Replacement' %}selected{% endif %}>Air Filter Replacement</option>
+                                    <option value="Wheel Alignment" {% if service.service_type == 'Wheel Alignment' %}selected{% endif %}>Wheel Alignment</option>
+                                    <option value="Inspection" {% if service.service_type == 'Inspection' %}selected{% endif %}>Inspection</option>
+                                    <option value="Repair" {% if service.service_type == 'Repair' %}selected{% endif %}>Repair</option>
+                                    <option value="Other" {% if service.service_type == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">Status *</label>
+                                <select class="form-select" id="status" name="status" required>
+                                    <option value="completed" {% if service.status == 'completed' %}selected{% endif %}>Completed</option>
+                                    <option value="scheduled" {% if service.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                                    <option value="in_progress" {% if service.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="service_date" class="form-label">Service Date *</label>
+                                <input type="date" class="form-control" id="service_date" name="service_date" 
+                                       value="{{ service.service_date.strftime('%Y-%m-%d') if service.service_date else '' }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="cost" class="form-label">Cost ($)</label>
+                                <input type="number" step="0.01" class="form-control" id="cost" 
+                                       name="cost" value="{{ service.cost if service.cost else '' }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="odometer_reading" class="form-label">Odometer Reading (km)</label>
+                                <input type="number" class="form-control" id="odometer_reading" 
+                                       name="odometer_reading" value="{{ service.odometer_reading if service.odometer_reading else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="service_provider" class="form-label">Service Provider</label>
+                                <input type="text" class="form-control" id="service_provider" 
+                                       name="service_provider" value="{{ service.service_provider if service.service_provider else '' }}">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="next_service_date" class="form-label">Next Service Date</label>
+                                <input type="date" class="form-control" id="next_service_date" name="next_service_date"
+                                       value="{{ service.next_service_date.strftime('%Y-%m-%d') if service.next_service_date else '' }}">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="next_service_mileage" class="form-label">Next Service Mileage (km)</label>
+                                <input type="number" class="form-control" id="next_service_mileage" 
+                                       name="next_service_mileage" value="{{ service.next_service_mileage if service.next_service_mileage else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Service Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3">{{ service.description if service.description else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="parts_replaced" class="form-label">Parts Replaced</label>
+                            <textarea class="form-control" id="parts_replaced" name="parts_replaced" rows="2">{{ service.parts_replaced if service.parts_replaced else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="invoice" class="form-label">Invoice/Receipt (PNG, JPG, JPEG, PDF - Max 16MB)</label>
+                            {% if service.invoice_path %}
+                            <div class="mb-2">
+                                <small class="text-muted">Current: 
+                                    <a href="{{ url_for('static', filename=service.invoice_path) }}" target="_blank">View existing invoice</a>
+                                </small>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" id="invoice" name="invoice" 
+                                   accept=".png,.jpg,.jpeg,.pdf">
+                            <small class="text-muted">Leave empty to keep existing invoice</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Additional Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="2">{{ service.notes if service.notes else '' }}</textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('view_service', service_id=service.id) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Service Record
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

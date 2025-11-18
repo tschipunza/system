@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Return Vehicle{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">Return Vehicle</h3>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info">
+                        <h5>📋 Assignment Details</h5>
+                        <p><strong>Vehicle:</strong> {{ assignment.vehicle_number }} - {{ assignment.make }} {{ assignment.model }}</p>
+                        <p><strong>Driver:</strong> {{ assignment.driver_name }}</p>
+                        <p><strong>Assignment Date:</strong> {{ assignment.assignment_date.strftime('%Y-%m-%d %H:%M') if assignment.assignment_date else 'N/A' }}</p>
+                        <p class="mb-0"><strong>Mileage at Assignment:</strong> {{ assignment.mileage_at_assignment or 'Not recorded' }} km</p>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('return_vehicle', assignment_id=assignment.id) }}">
+                        <div class="mb-3">
+                            <label for="mileage_at_return" class="form-label">Mileage at Return (km) *</label>
+                            <input type="number" class="form-control" id="mileage_at_return" name="mileage_at_return" 
+                                   min="{{ assignment.mileage_at_assignment or 0 }}" 
+                                   value="{{ assignment.current_mileage or assignment.mileage_at_assignment or '' }}" 
+                                   required>
+                            {% if assignment.mileage_at_assignment %}
+                            <small class="text-muted">Must be greater than or equal to {{ assignment.mileage_at_assignment }} km</small>
+                            {% endif %}
+                        </div>
+
+                        {% if assignment.mileage_at_assignment %}
+                        <div class="mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6>Distance Traveled</h6>
+                                    <p class="mb-0 fs-4" id="distance">
+                                        <span id="distanceValue">0</span> km
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="alert alert-warning">
+                            <strong>Note:</strong> Make sure to record the current mileage from the vehicle odometer accurately.
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('assignments_list') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-warning">Complete Return</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('mileage_at_return').addEventListener('input', function() {
+    const mileageAtAssignment = {{ assignment.mileage_at_assignment or 0 }};
+    const mileageAtReturn = parseInt(this.value) || 0;
+    const distance = Math.max(0, mileageAtReturn - mileageAtAssignment);
+    document.getElementById('distanceValue').textContent = distance;
+});
+
+// Calculate initial distance
+window.addEventListener('load', function() {
+    const event = new Event('input');
+    document.getElementById('mileage_at_return').dispatchEvent(event);
+});
+</script>
+{% endblock %}

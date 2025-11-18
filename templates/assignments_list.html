@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Vehicle Assignments{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Vehicle Assignments</h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('assign_vehicle') }}" class="btn btn-primary">
+                ➕ New Assignment
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('assignments_list') }}" class="row g-3">
+                <div class="col-md-5">
+                    <label for="vehicle" class="form-label">Filter by Vehicle</label>
+                    <select class="form-control" id="vehicle" name="vehicle" onchange="this.form.submit()">
+                        <option value="">All Vehicles</option>
+                        {% for vehicle in vehicles %}
+                        <option value="{{ vehicle.id }}" {% if vehicle_filter == vehicle.id|string %}selected{% endif %}>
+                            {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="status" class="form-label">Filter by Status</label>
+                    <select class="form-control" id="status" name="status" onchange="this.form.submit()">
+                        <option value="">All Status</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <a href="{{ url_for('assignments_list') }}" class="btn btn-secondary w-100">
+                        Clear Filters
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if assignments %}
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Driver/Employee</th>
+                            <th>Assignment Date</th>
+                            <th>Return Date</th>
+                            <th>Mileage</th>
+                            <th>Status</th>
+                            <th>Assigned By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>
+                                <strong>{{ assignment.vehicle_number }}</strong><br>
+                                <small>{{ assignment.make }} {{ assignment.model }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ assignment.driver_name }}</strong><br>
+                                <small>{{ assignment.driver_emp_id }}</small>
+                            </td>
+                            <td>{{ assignment.assignment_date.strftime('%Y-%m-%d %H:%M') if assignment.assignment_date else 'N/A' }}</td>
+                            <td>{{ assignment.return_date.strftime('%Y-%m-%d %H:%M') if assignment.return_date else '-' }}</td>
+                            <td>
+                                {% if assignment.mileage_at_assignment and assignment.mileage_at_return %}
+                                    <strong>{{ assignment.mileage_at_return - assignment.mileage_at_assignment }} km</strong><br>
+                                    <small class="text-muted">{{ assignment.mileage_at_assignment }} → {{ assignment.mileage_at_return }}</small>
+                                {% elif assignment.mileage_at_assignment %}
+                                    <small>Start: {{ assignment.mileage_at_assignment }} km</small>
+                                {% else %}
+                                    <small class="text-muted">Not recorded</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if assignment.status == 'active' %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif assignment.status == 'completed' %}
+                                    <span class="badge bg-secondary">Completed</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ assignment.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ assignment.assigned_by_name or 'N/A' }}</td>
+                            <td>
+                                <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" class="btn btn-sm btn-info" title="View">
+                                    👁️
+                                </a>
+                                {% if assignment.status == 'active' %}
+                                <a href="{{ url_for('return_vehicle', assignment_id=assignment.id) }}" class="btn btn-sm btn-warning" title="Return Vehicle">
+                                    ↩️
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h4>No assignments found</h4>
+        {% if vehicle_filter or status_filter %}
+        <p>No assignments match your filter criteria. <a href="{{ url_for('assignments_list') }}">Clear filters</a> to see all assignments.</p>
+        {% else %}
+        <p>Click "New Assignment" to assign a vehicle to an employee.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

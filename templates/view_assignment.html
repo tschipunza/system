@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Assignment Details{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Assignment Details</h3>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Status</h5>
+                            <p>
+                                {% if assignment.status == 'active' %}
+                                    <span class="badge bg-success fs-6">Active</span>
+                                {% elif assignment.status == 'completed' %}
+                                    <span class="badge bg-secondary fs-6">Completed</span>
+                                {% else %}
+                                    <span class="badge bg-warning fs-6">{{ assignment.status }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Assignment ID</h5>
+                            <p><strong>#{{ assignment.id }}</strong></p>
+                        </div>
+                    </div>
+
+                    <hr>
+                    
+                    <h4 class="mb-3">🚗 Vehicle Information</h4>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Vehicle Number</h6>
+                            <p><strong>{{ assignment.vehicle_number }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Vehicle Type</h6>
+                            <p>{{ assignment.vehicle_type or 'N/A' }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Make & Model</h6>
+                            <p>{{ assignment.make }} {{ assignment.model }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Year & Color</h6>
+                            <p>{{ assignment.year }} - {{ assignment.color or 'N/A' }}</p>
+                        </div>
+                    </div>
+
+                    <hr>
+                    
+                    <h4 class="mb-3">👤 Driver/Employee Information</h4>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Name</h6>
+                            <p><strong>{{ assignment.driver_name }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Employee ID</h6>
+                            <p>{{ assignment.driver_emp_id }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Email</h6>
+                            <p>{{ assignment.driver_email }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Position</h6>
+                            <p>{{ assignment.driver_position or 'N/A' }}</p>
+                        </div>
+                    </div>
+
+                    <hr>
+                    
+                    <h4 class="mb-3">📋 Assignment Details</h4>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Assignment Date</h6>
+                            <p>{{ assignment.assignment_date.strftime('%Y-%m-%d %H:%M') if assignment.assignment_date else 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Return Date</h6>
+                            <p>{{ assignment.return_date.strftime('%Y-%m-%d %H:%M') if assignment.return_date else 'Not returned yet' }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Assigned By</h6>
+                            <p>{{ assignment.assigned_by_name or 'N/A' }}
+                                {% if assignment.assigned_by_emp_id %}({{ assignment.assigned_by_emp_id }}){% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h4 class="mb-3">🛣️ Mileage Information</h4>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <h6 class="text-muted">Mileage at Assignment</h6>
+                            <p><strong>{{ assignment.mileage_at_assignment or 'Not recorded' }}</strong> {% if assignment.mileage_at_assignment %}km{% endif %}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-muted">Mileage at Return</h6>
+                            <p><strong>{{ assignment.mileage_at_return or 'Not returned yet' }}</strong> {% if assignment.mileage_at_return %}km{% endif %}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-muted">Distance Traveled</h6>
+                            {% if assignment.mileage_at_assignment and assignment.mileage_at_return %}
+                            <p class="text-success"><strong>{{ assignment.mileage_at_return - assignment.mileage_at_assignment }} km</strong></p>
+                            {% else %}
+                            <p class="text-muted">N/A</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if assignment.purpose %}
+                    <div class="mb-3">
+                        <h6 class="text-muted">Purpose</h6>
+                        <p class="p-3 bg-light rounded">{{ assignment.purpose }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if assignment.notes %}
+                    <div class="mb-3">
+                        <h6 class="text-muted">Notes</h6>
+                        <p class="p-3 bg-light rounded">{{ assignment.notes }}</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ url_for('assignments_list') }}" class="btn btn-secondary">Back to List</a>
+                        {% if assignment.status == 'active' %}
+                        <a href="{{ url_for('return_vehicle', assignment_id=assignment.id) }}" class="btn btn-warning">Return Vehicle</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

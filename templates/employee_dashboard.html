@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Dashboard{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Employee Dashboard</h3>
+                </div>
+                <div class="card-body p-5">
+                    <h4 class="mb-4">Welcome, {{ employee.username }}! 💼</h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Employee Information</h5>
+                                    <hr>
+                                    <p><strong>Employee ID:</strong> {{ employee.employee_id }}</p>
+                                    <p><strong>Username:</strong> {{ employee.username }}</p>
+                                    <p><strong>Email:</strong> {{ employee.email }}</p>
+                                    <p><strong>Department:</strong> {{ employee.department or 'Not specified' }}</p>
+                                    <p><strong>Position:</strong> {{ employee.position or 'Not specified' }}</p>
+                                    <p><strong>Account Created:</strong> {{ employee.created_at.strftime('%Y-%m-%d %H:%M') if employee.created_at else 'N/A' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                                <div class="card mb-3 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Quick Actions</h5>
+                                    <hr>
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ url_for('add_vehicle') }}" class="btn btn-outline-success">➕ Add Vehicle</a>
+                                        <a href="{{ url_for('assign_vehicle') }}" class="btn btn-outline-primary">🔗 Assign Vehicle</a>
+                                        <a href="{{ url_for('profile_settings') }}" class="btn btn-outline-info">👤 Update Profile</a>
+                                        <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary">⚙️ System Settings</a>
+                                        <a href="{{ url_for('logout') }}" class="btn btn-danger">🚪 Logout</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4">
+                        <h5><i class="fas fa-bell"></i> Service Notifications</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="card border-danger">
+                                    <div class="card-body text-center">
+                                        <h2 class="text-danger">{{ overdue_count }}</h2>
+                                        <p class="mb-0">Overdue Service</p>
+                                        <a href="{{ url_for('service_notifications') }}" class="btn btn-sm btn-danger mt-2">View Details</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-warning">
+                                    <div class="card-body text-center">
+                                        <h2 class="text-warning">{{ due_soon_count }}</h2>
+                                        <p class="mb-0">Due Soon (Within 1000 km or 7 days)</p>
+                                        <a href="{{ url_for('service_notifications') }}" class="btn btn-sm btn-warning mt-2">View Details</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        <strong>Note:</strong> This is your employee dashboard. You can manage your work-related tasks and information here.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

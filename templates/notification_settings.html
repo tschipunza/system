@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>🔔 Notification Settings</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="list-group">
+                <a href="{{ url_for('settings') }}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-cog"></i> System Settings
+                </a>
+                <a href="{{ url_for('profile_settings') }}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-user"></i> My Profile
+                </a>
+                <a href="{{ url_for('notification_settings') }}" class="list-group-item list-group-item-action active">
+                    <i class="fas fa-bell"></i> Notifications
+                </a>
+                <a href="{{ url_for('backup_settings') }}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-database"></i> Backups
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Email Notification Preferences</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Configure which notifications you want to receive via email and WhatsApp. These settings will take effect once notifications are enabled in system settings.
+                    </div>
+                    
+                    <form method="POST">
+                        <!-- WhatsApp Number -->
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">WhatsApp Settings</h6>
+                            <div class="mb-3">
+                                <label for="whatsapp_number" class="form-label">
+                                    <strong>WhatsApp Number</strong><br>
+                                    <small class="text-muted">Enter with country code (e.g., +263771234567)</small>
+                                </label>
+                                <input type="text" class="form-control" id="whatsapp_number" name="whatsapp_number" 
+                                       value="{{ settings.whatsapp_number if settings.whatsapp_number else '' }}"
+                                       placeholder="+263771234567">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">Service & Maintenance Alerts</h6>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="service_overdue_email" 
+                                               name="service_overdue_email" {% if settings.service_overdue_email %}checked{% endif %}>
+                                        <label class="form-check-label" for="service_overdue_email">
+                                            <i class="fas fa-envelope text-primary"></i> Email
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="service_overdue_whatsapp" 
+                                               name="service_overdue_whatsapp" {% if settings.service_overdue_whatsapp %}checked{% endif %}>
+                                        <label class="form-check-label" for="service_overdue_whatsapp">
+                                            <i class="fab fa-whatsapp text-success"></i> WhatsApp
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <strong>Service Overdue Alerts</strong><br>
+                                    <small class="text-muted">Receive notification when a vehicle service is overdue</small>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="service_due_soon_email" 
+                                               name="service_due_soon_email" {% if settings.service_due_soon_email %}checked{% endif %}>
+                                        <label class="form-check-label" for="service_due_soon_email">
+                                            <i class="fas fa-envelope text-primary"></i> Email
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="service_due_soon_whatsapp" 
+                                               name="service_due_soon_whatsapp" {% if settings.service_due_soon_whatsapp %}checked{% endif %}>
+                                        <label class="form-check-label" for="service_due_soon_whatsapp">
+                                            <i class="fab fa-whatsapp text-success"></i> WhatsApp
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <strong>Service Due Soon Alerts</strong><br>
+                                    <small class="text-muted">Receive notification when a vehicle service is due within 1000 km or 7 days</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">Vehicle & Assignment Alerts</h6>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="vehicle_assignment_email" 
+                                               name="vehicle_assignment_email" {% if settings.vehicle_assignment_email %}checked{% endif %}>
+                                        <label class="form-check-label" for="vehicle_assignment_email">
+                                            <i class="fas fa-envelope text-primary"></i> Email
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="vehicle_assignment_whatsapp" 
+                                               name="vehicle_assignment_whatsapp" {% if settings.vehicle_assignment_whatsapp %}checked{% endif %}>
+                                        <label class="form-check-label" for="vehicle_assignment_whatsapp">
+                                            <i class="fab fa-whatsapp text-success"></i> WhatsApp
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <strong>Vehicle Assignment Notifications</strong><br>
+                                    <small class="text-muted">Receive notification when a vehicle is assigned to you</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">Job Card Alerts</h6>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="job_card_status_email" 
+                                               name="job_card_status_email" {% if settings.job_card_status_email %}checked{% endif %}>
+                                        <label class="form-check-label" for="job_card_status_email">
+                                            <i class="fas fa-envelope text-primary"></i> Email
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="job_card_status_whatsapp" 
+                                               name="job_card_status_whatsapp" {% if settings.job_card_status_whatsapp %}checked{% endif %}>
+                                        <label class="form-check-label" for="job_card_status_whatsapp">
+                                            <i class="fab fa-whatsapp text-success"></i> WhatsApp
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <strong>Job Card Status Updates</strong><br>
+                                    <small class="text-muted">Receive notification when job card status changes</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">Fuel & Expense Alerts</h6>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="fuel_expense_alert" 
+                                               name="fuel_expense_alert" {% if settings.fuel_expense_alert %}checked{% endif %}>
+                                        <label class="form-check-label" for="fuel_expense_alert">
+                                            <i class="fas fa-envelope text-primary"></i> Email
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="fuel_expense_alert_whatsapp" 
+                                               name="fuel_expense_alert_whatsapp" {% if settings.fuel_expense_alert_whatsapp %}checked{% endif %}>
+                                        <label class="form-check-label" for="fuel_expense_alert_whatsapp">
+                                            <i class="fab fa-whatsapp text-success"></i> WhatsApp
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <strong>Fuel Expense Alerts</strong><br>
+                                    <small class="text-muted">Receive notification when fuel expenses exceed threshold</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">Summary Reports</h6>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="daily_summary_email" 
+                                               name="daily_summary_email" {% if settings.daily_summary_email %}checked{% endif %}>
+                                        <label class="form-check-label" for="daily_summary_email">
+                                            <i class="fas fa-envelope text-primary"></i> Email
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="daily_summary_whatsapp" 
+                                               name="daily_summary_whatsapp" {% if settings.daily_summary_whatsapp %}checked{% endif %}>
+                                        <label class="form-check-label" for="daily_summary_whatsapp">
+                                            <i class="fab fa-whatsapp text-success"></i> WhatsApp
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <strong>Daily Summary</strong><br>
+                                    <small class="text-muted">Receive daily summary of fleet activities</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('employee_dashboard') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Preferences
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

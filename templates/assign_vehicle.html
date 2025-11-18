@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Vehicle{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Assign Vehicle to Employee</h3>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('assign_vehicle') }}">
+                        <div class="mb-3">
+                            <label for="vehicle_id" class="form-label">Select Vehicle *</label>
+                            <select class="form-control" id="vehicle_id" name="vehicle_id" required onchange="updateMileage()">
+                                <option value="">-- Choose Vehicle --</option>
+                                {% for vehicle in vehicles %}
+                                <option value="{{ vehicle.id }}" data-mileage="{{ vehicle.mileage or '' }}">
+                                    {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }}) 
+                                    {% if vehicle.mileage %}- {{ vehicle.mileage }} km{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if not vehicles %}
+                            <small class="text-muted">No available vehicles at the moment.</small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="mileage_at_assignment" class="form-label">Mileage at Assignment (km)</label>
+                            <input type="number" class="form-control" id="mileage_at_assignment" name="mileage_at_assignment" min="0" placeholder="Current vehicle mileage">
+                            <small class="text-muted">Leave blank to use current vehicle mileage</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="employee_id" class="form-label">Select Employee/Driver *</label>
+                            <select class="form-control" id="employee_id" name="employee_id" required>
+                                <option value="">-- Choose Employee --</option>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}">
+                                    {{ employee.username }} ({{ employee.employee_id }}) - {{ employee.position or 'N/A' }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="purpose" class="form-label">Purpose of Assignment</label>
+                            <input type="text" class="form-control" id="purpose" name="purpose" placeholder="e.g., Delivery, Field Work, Official Trip">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Any additional notes or instructions"></textarea>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <strong>Note:</strong> The vehicle status will be automatically updated to "In Use" after assignment.
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('assignments_list') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary" {% if not vehicles or not employees %}disabled{% endif %}>Assign Vehicle</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateMileage() {
+    const select = document.getElementById('vehicle_id');
+    const mileageInput = document.getElementById('mileage_at_assignment');
+    const selectedOption = select.options[select.selectedIndex];
+    const mileage = selectedOption.getAttribute('data-mileage');
+    
+    if (mileage) {
+        mileageInput.value = mileage;
+    } else {
+        mileageInput.value = '';
+    }
+}
+</script>
+{% endblock %}

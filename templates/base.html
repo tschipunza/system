@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Shorai App{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .content {
+            flex: 1;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+        }
+        /* Sidebar styles */
+        .sidebar {
+            min-height: calc(100vh - 56px);
+            background: #2c3e50;
+            padding: 20px 0;
+            position: fixed;
+            top: 56px;
+            left: 0;
+            width: 250px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .sidebar .nav-link {
+            color: #ecf0f1;
+            padding: 12px 20px;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover {
+            background: #34495e;
+            border-left-color: #3498db;
+        }
+        .sidebar .nav-link.active {
+            background: #34495e;
+            border-left-color: #3498db;
+            color: #fff;
+        }
+        .sidebar .nav-link i {
+            margin-right: 10px;
+        }
+        .main-content {
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+        }
+        .no-sidebar .main-content {
+            margin-left: 0;
+        }
+        .sidebar-submenu {
+            padding-left: 30px;
+        }
+        .sidebar-submenu .nav-link {
+            padding: 8px 20px;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                margin-left: -250px;
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% if not (session.get('user_id') or session.get('employee_id')) %}no-sidebar{% endif %}">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Flask Auth</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if session.get('user_id') or session.get('employee_id') %}
+                        <li class="nav-item">
+                            <span class="navbar-text text-white me-3">Welcome, {{ session.get('username') }}!</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    {% if session.get('employee_id') %}
+    <!-- Sidebar for Employees -->
+    <div class="sidebar">
+        <nav class="nav flex-column">
+            <a class="nav-link {% if request.endpoint == 'employee_dashboard' %}active{% endif %}" href="{{ url_for('employee_dashboard') }}">
+                🏠 Dashboard
+            </a>
+            
+            <!-- Vehicle Management Section -->
+            <a class="nav-link" data-bs-toggle="collapse" href="#vehicleMenu" role="button" aria-expanded="false">
+                🚗 Vehicle Management
+            </a>
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['vehicles_list', 'add_vehicle', 'edit_vehicle', 'view_vehicle', 'assignments_list', 'assign_vehicle', 'view_assignment', 'my_assignments'] %}show{% endif %}" id="vehicleMenu">
+                <a class="nav-link {% if request.endpoint in ['vehicles_list', 'add_vehicle', 'edit_vehicle', 'view_vehicle'] %}active{% endif %}" href="{{ url_for('vehicles_list') }}">
+                    📋 All Vehicles
+                </a>
+                <a class="nav-link {% if request.endpoint == 'add_vehicle' %}active{% endif %}" href="{{ url_for('add_vehicle') }}">
+                    ➕ Add Vehicle
+                </a>
+                <a class="nav-link {% if request.endpoint in ['assignments_list', 'assign_vehicle', 'view_assignment'] %}active{% endif %}" href="{{ url_for('assignments_list') }}">
+                    🔗 Vehicle Assignments
+                </a>
+                <a class="nav-link {% if request.endpoint == 'assign_vehicle' %}active{% endif %}" href="{{ url_for('assign_vehicle') }}">
+                    ➕ Assign Vehicle
+                </a>
+                <a class="nav-link {% if request.endpoint == 'my_assignments' %}active{% endif %}" href="{{ url_for('my_assignments') }}">
+                    👤 My Vehicles
+                </a>
+            </div>
+            
+            <!-- Fuel Tracking Section -->
+            <a class="nav-link" data-bs-toggle="collapse" href="#fuelMenu" role="button" aria-expanded="false">
+                ⛽ Fuel Tracking
+            </a>
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['fuel_records', 'add_fuel_record', 'view_fuel_record', 'my_fuel_records'] %}show{% endif %}" id="fuelMenu">
+                <a class="nav-link {% if request.endpoint in ['fuel_records', 'view_fuel_record'] %}active{% endif %}" href="{{ url_for('fuel_records') }}">
+                    📋 All Fuel Records
+                </a>
+                <a class="nav-link {% if request.endpoint == 'add_fuel_record' %}active{% endif %}" href="{{ url_for('add_fuel_record') }}">
+                    ➕ Add Fuel Record
+                </a>
+                <a class="nav-link {% if request.endpoint == 'my_fuel_records' %}active{% endif %}" href="{{ url_for('my_fuel_records') }}">
+                    👤 My Fuel Records
+                </a>
+            </div>
+            
+            <!-- Service & Maintenance Section -->
+            <a class="nav-link" data-bs-toggle="collapse" href="#serviceMenu" role="button" aria-expanded="false">
+                🔧 Service & Maintenance
+            </a>
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['service_maintenance', 'add_service', 'view_service', 'edit_service', 'vehicle_service_history', 'job_cards', 'create_job_card', 'view_job_card', 'edit_job_card', 'print_job_card', 'service_notifications'] %}show{% endif %}" id="serviceMenu">
+                <a class="nav-link {% if request.endpoint == 'service_notifications' %}active{% endif %}" href="{{ url_for('service_notifications') }}">
+                    🔔 Service Notifications
+                </a>
+                <a class="nav-link {% if request.endpoint in ['service_maintenance', 'view_service', 'edit_service'] %}active{% endif %}" href="{{ url_for('service_maintenance') }}">
+                    📋 Service Records
+                </a>
+                <a class="nav-link {% if request.endpoint == 'add_service' %}active{% endif %}" href="{{ url_for('add_service') }}">
+                    ➕ Add Service Record
+                </a>
+                <a class="nav-link {% if request.endpoint in ['job_cards', 'view_job_card', 'edit_job_card'] %}active{% endif %}" href="{{ url_for('job_cards') }}">
+                    📝 Job Cards
+                </a>
+                <a class="nav-link {% if request.endpoint == 'create_job_card' %}active{% endif %}" href="{{ url_for('create_job_card') }}">
+                    ➕ Create Job Card
+                </a>
+            </div>
+            
+            <!-- Reports Section -->
+            <a class="nav-link" data-bs-toggle="collapse" href="#reportsMenu" role="button" aria-expanded="false">
+                📊 Reports & Analytics
+            </a>
+            <div class="collapse sidebar-submenu" id="reportsMenu">
+                <a class="nav-link" href="{{ url_for('fuel_records') }}">
+                    ⛽ Fuel Summary
+                </a>
+                <a class="nav-link" href="{{ url_for('my_fuel_records') }}">
+                    📈 My Fuel Analytics
+                </a>
+                <a class="nav-link" href="{{ url_for('service_notifications') }}">
+                    🔔 Service Dashboard
+                </a>
+                <a class="nav-link" href="{{ url_for('vehicles_list') }}">
+                    🚗 Fleet Overview
+                </a>
+            </div>
+            
+            <!-- Settings Section -->
+            <a class="nav-link" data-bs-toggle="collapse" href="#settingsMenu" role="button" aria-expanded="false">
+                ⚙️ Settings
+            </a>
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['settings', 'profile_settings', 'notification_settings', 'backup_settings'] %}show{% endif %}" id="settingsMenu">
+                <a class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">
+                    🔧 System Settings
+                </a>
+                <a class="nav-link {% if request.endpoint == 'profile_settings' %}active{% endif %}" href="{{ url_for('profile_settings') }}">
+                    👤 My Profile
+                </a>
+                <a class="nav-link {% if request.endpoint == 'notification_settings' %}active{% endif %}" href="{{ url_for('notification_settings') }}">
+                    🔔 Notifications
+                </a>
+                <a class="nav-link {% if request.endpoint == 'backup_settings' %}active{% endif %}" href="{{ url_for('backup_settings') }}">
+                    💾 Backups
+                </a>
+            </div>
+            
+            <a class="nav-link {% if request.endpoint == 'logout' %}active{% endif %}" href="{{ url_for('logout') }}">
+                🚪 Logout
+            </a>
+        </nav>
+    </div>
+    {% elif session.get('user_id') %}
+    <!-- Sidebar for Users -->
+    <div class="sidebar">
+        <nav class="nav flex-column">
+            <a class="nav-link {% if request.endpoint == 'user_dashboard' %}active{% endif %}" href="{{ url_for('user_dashboard') }}">
+                🏠 Dashboard
+            </a>
+            <a class="nav-link" href="#" onclick="return false;" style="opacity: 0.5;">
+                👤 Profile
+            </a>
+            <a class="nav-link" href="#" onclick="return false;" style="opacity: 0.5;">
+                ⚙️ Settings
+            </a>
+        </nav>
+    </div>
+    {% endif %}
+
+    <div class="main-content" style="{% if session.get('user_id') or session.get('employee_id') %}margin-top: 56px;{% endif %}">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mt-3">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="bg-dark text-white text-center py-3 mt-5" style="{% if session.get('user_id') or session.get('employee_id') %}margin-left: 250px;{% endif %}">
+        <div class="container">
+            <p class="mb-0">&copy; 2025 Flask Auth App. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>

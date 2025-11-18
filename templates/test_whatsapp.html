@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Test WhatsApp Notifications{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fab fa-whatsapp"></i> Test WhatsApp Notifications</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Use this page to test your Twilio WhatsApp integration.
+                        Make sure you have configured your Twilio credentials in System Settings first.
+                    </div>
+
+                    <form method="POST" action="{{ url_for('test_whatsapp') }}">
+                        <div class="mb-3">
+                            <label for="phone_number" class="form-label">Phone Number (with country code)</label>
+                            <input type="text" class="form-control" id="phone_number" name="phone_number" 
+                                   placeholder="+263771234567" required>
+                            <small class="form-text text-muted">
+                                Include country code (e.g., +263 for Zimbabwe, +1 for USA)
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message_type" class="form-label">Message Type</label>
+                            <select class="form-control" id="message_type" name="message_type" required>
+                                <option value="simple">Simple Test Message</option>
+                                <option value="service_overdue">Service Overdue Alert</option>
+                                <option value="service_due_soon">Service Due Soon Alert</option>
+                                <option value="vehicle_assignment">Vehicle Assignment Notification</option>
+                                <option value="job_card_status">Job Card Status Update</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fab fa-whatsapp"></i> Send Test Message
+                            </button>
+                            <a href="{{ url_for('settings') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to Settings
+                            </a>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                        <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fas fa-cog"></i> Configuration Status</h6>
+                            <p class="text-muted">Check your current Twilio WhatsApp configuration below. Configure settings in System Settings if needed.</p>
+                            <div class="mt-3">
+                                <a href="{{ url_for('settings') }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-cog"></i> Configure Settings
+                                </a>
+                            </div>
+                        </div>
+                    </div>                    <div class="alert alert-warning mt-3">
+                        <strong><i class="fas fa-exclamation-triangle"></i> Important:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Make sure the recipient number is registered with your Twilio WhatsApp sandbox or is an approved number</li>
+                            <li>For testing, you may need to send "join [your-sandbox-code]" to your Twilio number first</li>
+                            <li>Check your Twilio console for detailed logs if messages fail</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

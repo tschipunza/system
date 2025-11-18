@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Add Service Record{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">🔧 Add Service/Maintenance Record</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_service') }}" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="vehicle_id" class="form-label">Vehicle *</label>
+                                <select class="form-select" id="vehicle_id" name="vehicle_id" required>
+                                    <option value="">Select a vehicle</option>
+                                    {% for vehicle in vehicles %}
+                                    <option value="{{ vehicle.id }}" 
+                                            data-mileage="{{ vehicle.mileage }}"
+                                            data-last-service="{{ vehicle.last_service_date }}">
+                                        {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                                        (Current: {{ vehicle.mileage if vehicle.mileage else 'N/A' }} km)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small id="vehicle_info" class="text-muted"></small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="service_type" class="form-label">Service Type *</label>
+                                <select class="form-select" id="service_type" name="service_type" required>
+                                    <option value="">Select service type</option>
+                                    <option value="Oil Change">Oil Change</option>
+                                    <option value="Tire Rotation">Tire Rotation</option>
+                                    <option value="Brake Service">Brake Service</option>
+                                    <option value="Engine Tune-up">Engine Tune-up</option>
+                                    <option value="Transmission Service">Transmission Service</option>
+                                    <option value="Battery Replacement">Battery Replacement</option>
+                                    <option value="Air Filter Replacement">Air Filter Replacement</option>
+                                    <option value="Wheel Alignment">Wheel Alignment</option>
+                                    <option value="Inspection">Inspection</option>
+                                    <option value="Repair">Repair</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="service_date" class="form-label">Service Date *</label>
+                                <input type="date" class="form-control" id="service_date" name="service_date" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="cost" class="form-label">Cost ($)</label>
+                                <input type="number" step="0.01" class="form-control" id="cost" 
+                                       name="cost" placeholder="e.g., 250.00">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="odometer_reading" class="form-label">Odometer Reading (km)</label>
+                                <input type="number" class="form-control" id="odometer_reading" 
+                                       name="odometer_reading" placeholder="e.g., 12500">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="service_provider" class="form-label">Service Provider</label>
+                                <input type="text" class="form-control" id="service_provider" 
+                                       name="service_provider" placeholder="e.g., ABC Auto Service">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">Status *</label>
+                                <select class="form-select" id="status" name="status" required>
+                                    <option value="completed" selected>Completed</option>
+                                    <option value="scheduled">Scheduled</option>
+                                    <option value="in_progress">In Progress</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="next_service_date" class="form-label">Next Service Date</label>
+                                <input type="date" class="form-control" id="next_service_date" name="next_service_date">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="next_service_mileage" class="form-label">Next Service Mileage (km)</label>
+                                <input type="number" class="form-control" id="next_service_mileage" 
+                                       name="next_service_mileage" placeholder="e.g., 15000">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Service Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" 
+                                      placeholder="Describe the service performed..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="parts_replaced" class="form-label">Parts Replaced</label>
+                            <textarea class="form-control" id="parts_replaced" name="parts_replaced" rows="2" 
+                                      placeholder="List parts that were replaced..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="invoice" class="form-label">Invoice/Receipt (PNG, JPG, JPEG, PDF - Max 16MB)</label>
+                            <input type="file" class="form-control" id="invoice" name="invoice" 
+                                   accept=".png,.jpg,.jpeg,.pdf">
+                            <small class="text-muted">Upload service invoice or receipt</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Additional Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="2" 
+                                      placeholder="Any additional notes..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('service_maintenance') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Service Record
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Set today's date as default
+    document.getElementById('service_date').valueAsDate = new Date();
+    
+    // Show vehicle info when selected
+    document.getElementById('vehicle_id').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const mileage = selectedOption.getAttribute('data-mileage');
+        const lastService = selectedOption.getAttribute('data-last-service');
+        const info = document.getElementById('vehicle_info');
+        
+        if (mileage && mileage !== 'None') {
+            let infoText = `Current mileage: ${mileage} km`;
+            if (lastService && lastService !== 'None') {
+                infoText += ` | Last service: ${lastService}`;
+            }
+            info.textContent = infoText;
+            info.classList.add('text-info');
+        } else {
+            info.textContent = '';
+        }
+    });
+</script>
+{% endblock %}

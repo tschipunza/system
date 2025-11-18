@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}My Fuel Records{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>⛽ My Fuel Records</h2>
+        <a href="{{ url_for('add_fuel_record') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Fuel Record
+        </a>
+    </div>
+
+    {% if fuel_records %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Vehicle</th>
+                            <th>Fuel Amount (L)</th>
+                            <th>Cost</th>
+                            <th>Cost/Liter</th>
+                            <th>Odometer</th>
+                            <th>Fuel Type</th>
+                            <th>Station</th>
+                            <th>Receipt</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in fuel_records %}
+                        <tr>
+                            <td>{{ record.fuel_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <strong>{{ record.vehicle_number }}</strong><br>
+                                <small class="text-muted">{{ record.make }} {{ record.model }}</small>
+                            </td>
+                            <td>{{ record.fuel_amount }} L</td>
+                            <td>${{ "%.2f"|format(record.fuel_cost) }}</td>
+                            <td>${{ "%.2f"|format(record.fuel_cost / record.fuel_amount) }}/L</td>
+                            <td>{{ record.odometer_reading if record.odometer_reading else 'N/A' }} km</td>
+                            <td>{{ record.fuel_type if record.fuel_type else 'N/A' }}</td>
+                            <td>{{ record.station_name if record.station_name else 'N/A' }}</td>
+                            <td>
+                                {% if record.receipt_path %}
+                                <a href="{{ url_for('static', filename=record.receipt_path) }}" target="_blank" class="btn btn-sm btn-info">
+                                    <i class="fas fa-file"></i> View
+                                </a>
+                                {% else %}
+                                <span class="text-muted">No receipt</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('view_fuel_record', record_id=record.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">📊 Summary Statistics</h5>
+            </div>
+            <div class="card-body">
+                {% set total_fuel = fuel_records|sum(attribute='fuel_amount') %}
+                {% set total_cost = fuel_records|sum(attribute='fuel_cost') %}
+                {% set records_with_odometer = fuel_records|selectattr('odometer_reading')|list %}
+                
+                <div class="row text-center mb-4">
+                    <div class="col-md-3">
+                        <h3>{{ fuel_records|length }}</h3>
+                        <p class="text-muted">Total Records</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3>{{ "%.2f"|format(total_fuel) }} L</h3>
+                        <p class="text-muted">Total Fuel</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3>${{ "%.2f"|format(total_cost) }}</h3>
+                        <p class="text-muted">Total Cost</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3>${{ "%.2f"|format(total_cost / total_fuel) }}/L</h3>
+                        <p class="text-muted">Average Cost</p>
+                    </div>
+                </div>
+                
+                {% if records_with_odometer|length >= 2 %}
+                {% set sorted_records = records_with_odometer|sort(attribute='odometer_reading') %}
+                {% set first_record = sorted_records[0] %}
+                {% set last_record = sorted_records[-1] %}
+                {% set total_distance = last_record.odometer_reading - first_record.odometer_reading %}
+                {% set fuel_for_calculation = records_with_odometer|sum(attribute='fuel_amount') %}
+                
+                <hr>
+                <h6 class="text-center text-muted mb-3">🚗 Fuel Consumption Analysis</h6>
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h4>{{ total_distance }} km</h4>
+                        <p class="text-muted">Total Distance</p>
+                        <small class="text-muted">{{ first_record.odometer_reading }} - {{ last_record.odometer_reading }} km</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4>{{ "%.2f"|format(fuel_for_calculation / total_distance * 100) }} L</h4>
+                        <p class="text-muted">Fuel per 100km</p>
+                        <small class="text-muted">Average consumption rate</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4>{{ "%.2f"|format(total_distance / fuel_for_calculation) }} km/L</h4>
+                        <p class="text-muted">Kilometers per Liter</p>
+                        <small class="text-muted">Fuel efficiency</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4>${{ "%.2f"|format(records_with_odometer|sum(attribute='fuel_cost') / total_distance) }}/km</h4>
+                        <p class="text-muted">Cost per Kilometer</p>
+                        <small class="text-muted">Running cost</small>
+                    </div>
+                </div>
+                <div class="alert alert-info mt-3 mb-0">
+                    <small><i class="fas fa-info-circle"></i> Based on {{ records_with_odometer|length }} records with odometer readings</small>
+                </div>
+                {% else %}
+                <hr>
+                <div class="alert alert-warning mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Add odometer readings to at least 2 fuel records to see consumption analysis
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> You haven't added any fuel records yet. 
+        <a href="{{ url_for('add_fuel_record') }}" class="alert-link">Add your first fuel record now!</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

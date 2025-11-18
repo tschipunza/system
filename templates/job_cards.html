@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Job Cards{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📝 Service Job Cards</h2>
+        <a href="{{ url_for('create_job_card') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Job Card
+        </a>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">🔍 Filter Job Cards</h5>
+            <form method="GET" action="{{ url_for('job_cards') }}">
+                <div class="row">
+                    <div class="col-md-5">
+                        <label for="status_filter" class="form-label">Status</label>
+                        <select class="form-select" id="status_filter" name="status_filter" onchange="this.form.submit()">
+                            <option value="">All Status</option>
+                            <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Progress</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="on_hold" {% if status_filter == 'on_hold' %}selected{% endif %}>On Hold</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="vehicle_filter" class="form-label">Vehicle</label>
+                        <select class="form-select" id="vehicle_filter" name="vehicle_filter" onchange="this.form.submit()">
+                            <option value="">All Vehicles</option>
+                            {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}" {% if vehicle_filter == vehicle.id|string %}selected{% endif %}>
+                                {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <a href="{{ url_for('job_cards') }}" class="btn btn-secondary w-100">Clear</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if job_cards %}
+    <div class="row">
+        {% for jc in job_cards %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 border-{% if jc.status == 'completed' %}success{% elif jc.status == 'in_progress' %}info{% elif jc.status == 'on_hold' %}warning{% else %}secondary{% endif %}">
+                <div class="card-header bg-{% if jc.status == 'completed' %}success{% elif jc.status == 'in_progress' %}info{% elif jc.status == 'on_hold' %}warning{% else %}secondary{% endif %} text-white d-flex justify-content-between align-items-center">
+                    <span><strong>{{ jc.job_card_number }}</strong></span>
+                    <span class="badge bg-{% if jc.priority == 'high' %}danger{% elif jc.priority == 'urgent' %}danger{% else %}light{% endif %}">
+                        {{ jc.priority|title }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ jc.vehicle_number }}</h5>
+                    <p class="card-text text-muted mb-2">{{ jc.make }} {{ jc.model }}</p>
+                    
+                    <hr>
+                    
+                    <p class="mb-1"><strong>Customer:</strong> {{ jc.customer_name if jc.customer_name else 'N/A' }}</p>
+                    <p class="mb-1"><strong>Technician:</strong> {{ jc.technician_name if jc.technician_name else 'Unassigned' }}</p>
+                    <p class="mb-1"><strong>Status:</strong> 
+                        <span class="badge bg-{% if jc.status == 'completed' %}success{% elif jc.status == 'in_progress' %}info{% elif jc.status == 'on_hold' %}warning{% else %}secondary{% endif %}">
+                            {{ jc.status|replace('_', ' ')|title }}
+                        </span>
+                    </p>
+                    <p class="mb-1"><strong>Date In:</strong> {{ jc.date_in.strftime('%Y-%m-%d %H:%M') }}</p>
+                    {% if jc.expected_completion %}
+                    <p class="mb-1"><strong>Expected:</strong> {{ jc.expected_completion.strftime('%Y-%m-%d %H:%M') }}</p>
+                    {% endif %}
+                    <p class="mb-1"><strong>Total Cost:</strong> <span class="text-success">${{ "%.2f"|format(jc.total_cost) }}</span></p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('view_job_card', job_card_id=jc.id) }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <a href="{{ url_for('edit_job_card', job_card_id=jc.id) }}" class="btn btn-sm btn-warning">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{{ url_for('print_job_card', job_card_id=jc.id) }}" class="btn btn-sm btn-info" target="_blank">
+                            <i class="fas fa-print"></i> Print
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No job cards found matching your filters.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

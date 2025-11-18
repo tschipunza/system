@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Job Card - {{ job_card.job_card_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>📝 Job Card: {{ job_card.job_card_number }}</h2>
+            <span class="badge bg-{% if job_card.status == 'completed' %}success{% elif job_card.status == 'in_progress' %}info{% elif job_card.status == 'on_hold' %}warning{% else %}secondary{% endif %} fs-6">
+                {{ job_card.status|replace('_', ' ')|title }}
+            </span>
+            <span class="badge bg-{% if job_card.priority == 'urgent' %}danger{% elif job_card.priority == 'high' %}warning{% else %}secondary{% endif %} fs-6">
+                {{ job_card.priority|title }} Priority
+            </span>
+        </div>
+        <div>
+            <a href="{{ url_for('print_job_card', job_card_id=job_card.id) }}" class="btn btn-info" target="_blank">
+                <i class="fas fa-print"></i> Print
+            </a>
+            <a href="{{ url_for('edit_job_card', job_card_id=job_card.id) }}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="{{ url_for('job_cards') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-md-6">
+            <!-- Vehicle Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">🚗 Vehicle Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Registration:</strong> {{ job_card.vehicle_number }}</p>
+                    <p><strong>Make/Model:</strong> {{ job_card.make }} {{ job_card.model }}</p>
+                    <p><strong>Year:</strong> {{ job_card.year }}</p>
+                    <p><strong>Color:</strong> {{ job_card.color if job_card.color else 'N/A' }}</p>
+                    <p><strong>Odometer In:</strong> {{ job_card.odometer_in if job_card.odometer_in else 'N/A' }} km</p>
+                    <p><strong>Odometer Out:</strong> {{ job_card.odometer_out if job_card.odometer_out else 'N/A' }} km</p>
+                    <p class="mb-0"><strong>Fuel Level:</strong> {{ job_card.fuel_level if job_card.fuel_level else 'Not recorded' }}</p>
+                </div>
+            </div>
+
+            <!-- Customer Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">👤 Customer Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> {{ job_card.customer_name if job_card.customer_name else 'N/A' }}</p>
+                    <p><strong>Phone:</strong> {{ job_card.customer_phone if job_card.customer_phone else 'N/A' }}</p>
+                    <p class="mb-0"><strong>Email:</strong> {{ job_card.customer_email if job_card.customer_email else 'N/A' }}</p>
+                </div>
+            </div>
+
+            <!-- Service Details -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📅 Service Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Date In:</strong> {{ job_card.date_in.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                    <p><strong>Expected Completion:</strong> {{ job_card.expected_completion.strftime('%B %d, %Y at %I:%M %p') if job_card.expected_completion else 'Not set' }}</p>
+                    <p><strong>Date Out:</strong> {{ job_card.date_out.strftime('%B %d, %Y at %I:%M %p') if job_card.date_out else 'Not completed' }}</p>
+                    <p><strong>Assigned Technician:</strong> {{ job_card.technician_name if job_card.technician_name else 'Unassigned' }}</p>
+                    <p class="mb-0"><strong>Created By:</strong> {{ job_card.created_by_name }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-md-6">
+            <!-- Issues & Diagnosis -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">🔍 Issues & Diagnosis</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted">Reported Issues:</h6>
+                    <p>{{ job_card.reported_issues if job_card.reported_issues else 'No issues reported' }}</p>
+                    
+                    {% if job_card.diagnosis %}
+                    <hr>
+                    <h6 class="text-muted">Diagnosis:</h6>
+                    <p>{{ job_card.diagnosis }}</p>
+                    {% endif %}
+                    
+                    {% if job_card.recommended_services %}
+                    <hr>
+                    <h6 class="text-muted">Recommended Services:</h6>
+                    <p class="mb-0">{{ job_card.recommended_services }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Parts & Labor -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🛠️ Parts & Labor</h5>
+                    <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if items %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td><span class="badge bg-{% if item.item_type == 'part' %}primary{% else %}success{% endif %}">{{ item.item_type|title }}</span></td>
+                                    <td>{{ item.description }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>${{ "%.2f"|format(item.unit_price) }}</td>
+                                    <td>${{ "%.2f"|format(item.total_price) }}</td>
+                                    <td>
+                                        <a href="{{ url_for('delete_job_card_item', item_id=item.id, job_card_id=job_card.id) }}" 
+                                           class="btn btn-sm btn-danger" 
+                                           onclick="return confirm('Delete this item?');">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No parts or labor added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cost Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">💰 Cost Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Parts Cost:</span>
+                        <strong>${{ "%.2f"|format(job_card.parts_cost) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Labor Cost:</span>
+                        <strong>${{ "%.2f"|format(job_card.labor_cost) }}</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span class="fs-5"><strong>Total Cost:</strong></span>
+                        <span class="fs-4 text-success"><strong>${{ "%.2f"|format(job_card.total_cost) }}</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            {% if job_card.notes %}
+            <!-- Additional Notes -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">📝 Additional Notes</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ job_card.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if job_card.status == 'completed' and service_record %}
+            <!-- Related Service Record -->
+            <div class="card mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">✅ Service Record Created</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">This job card has been completed and a service record has been automatically created.</p>
+                    <a href="{{ url_for('view_service', service_id=service_record.id) }}" class="btn btn-sm btn-success">
+                        <i class="fas fa-eye"></i> View Service Record
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Part/Labor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_job_card_item', job_card_id=job_card.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="item_type" class="form-label">Type *</label>
+                        <select class="form-select" id="item_type" name="item_type" required>
+                            <option value="part">Part</option>
+                            <option value="labor">Labor</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description *</label>
+                        <textarea class="form-control" id="description" name="description" rows="2" required></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="quantity" class="form-label">Quantity *</label>
+                            <input type="number" step="0.01" class="form-control" id="quantity" name="quantity" value="1" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="unit_price" class="form-label">Unit Price ($) *</label>
+                            <input type="number" step="0.01" class="form-control" id="unit_price" name="unit_price" value="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

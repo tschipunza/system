@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Add Fuel Record{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">⛽ Add Fuel Record</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_fuel_record') }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="vehicle_id" class="form-label">Vehicle *</label>
+                            <select class="form-select" id="vehicle_id" name="vehicle_id" required>
+                                <option value="">Select a vehicle</option>
+                                {% for vehicle in vehicles %}
+                                <option value="{{ vehicle.id }}" data-mileage="{{ vehicle.mileage }}">
+                                    {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                                    (Current: {{ vehicle.mileage if vehicle.mileage else 'N/A' }} km)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="fuel_amount" class="form-label">Fuel Amount (Liters) *</label>
+                                <input type="number" step="0.01" class="form-control" id="fuel_amount" 
+                                       name="fuel_amount" placeholder="e.g., 45.50" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="fuel_cost" class="form-label">Total Cost ($) *</label>
+                                <input type="number" step="0.01" class="form-control" id="fuel_cost" 
+                                       name="fuel_cost" placeholder="e.g., 85.00" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="odometer_reading" class="form-label">Odometer Reading (km)</label>
+                            <input type="number" class="form-control" id="odometer_reading" 
+                                   name="odometer_reading" placeholder="e.g., 12500">
+                            <small class="text-muted" id="mileage_hint"></small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="fuel_type" class="form-label">Fuel Type</label>
+                                <select class="form-select" id="fuel_type" name="fuel_type">
+                                    <option value="">Select fuel type</option>
+                                    <option value="Gasoline">Gasoline</option>
+                                    <option value="Diesel">Diesel</option>
+                                    <option value="Premium">Premium</option>
+                                    <option value="E85">E85</option>
+                                    <option value="Electric">Electric</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="station_name" class="form-label">Station Name</label>
+                                <input type="text" class="form-control" id="station_name" 
+                                       name="station_name" placeholder="e.g., Shell Downtown">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="receipt" class="form-label">Fuel Receipt (PNG, JPG, JPEG, PDF - Max 16MB)</label>
+                            <input type="file" class="form-control" id="receipt" name="receipt" 
+                                   accept=".png,.jpg,.jpeg,.pdf">
+                            <small class="text-muted">Upload a photo or scan of your fuel receipt</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Additional notes about this fuel purchase..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('fuel_records') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Fuel Record
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show current mileage hint when vehicle is selected
+    document.getElementById('vehicle_id').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const currentMileage = selectedOption.getAttribute('data-mileage');
+        const hint = document.getElementById('mileage_hint');
+        
+        if (currentMileage && currentMileage !== 'None') {
+            hint.textContent = `Current vehicle mileage: ${currentMileage} km`;
+            hint.classList.add('text-info');
+        } else {
+            hint.textContent = '';
+        }
+    });
+</script>
+{% endblock %}

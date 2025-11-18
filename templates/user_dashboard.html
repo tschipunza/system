@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}User Dashboard{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">User Dashboard</h3>
+                </div>
+                <div class="card-body p-5">
+                    <h4 class="mb-4">Welcome, {{ user.username }}! 👋</h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Profile Information</h5>
+                                    <hr>
+                                    <p><strong>Username:</strong> {{ user.username }}</p>
+                                    <p><strong>Email:</strong> {{ user.email }}</p>
+                                    <p><strong>User ID:</strong> {{ user.id }}</p>
+                                    <p><strong>Account Created:</strong> {{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card mb-3 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Quick Actions</h5>
+                                    <hr>
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-outline-primary" disabled>Update Profile</button>
+                                        <button class="btn btn-outline-primary" disabled>Change Password</button>
+                                        <button class="btn btn-outline-primary" disabled>View Activity</button>
+                                        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+                                    </div>
+                                    <p class="text-muted mt-2 mb-0"><small>Some features are coming soon!</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4">
+                        <strong>Note:</strong> This is your personalized user dashboard. You can manage your account settings and preferences here.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

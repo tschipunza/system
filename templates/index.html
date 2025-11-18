@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Flask Auth App{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 mb-4">Welcome System</h1>
+        <p class="lead mb-5">Secure authentication system for Users and Employees</p>
+    </div>
+</div>
+
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <h2 class="card-title text-primary mb-4">User Portal</h2>
+                    <p class="card-text mb-4">Access the user portal to manage your account and personal information.</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('user_login') }}" class="btn btn-primary btn-lg">User Login</a>
+                        <a href="{{ url_for('user_signup') }}" class="btn btn-outline-primary btn-lg">User Sign Up</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <h2 class="card-title text-success mb-4">Employee Portal</h2>
+                    <p class="card-text mb-4">Employee access for managing work-related tasks and information.</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('employee_login') }}" class="btn btn-success btn-lg">Employee Login</a>
+                        <a href="{{ url_for('employee_signup') }}" class="btn btn-outline-success btn-lg">Employee Sign Up</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-4 text-center mb-4">
+            <div class="feature-icon bg-primary bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center fs-2 mb-3" style="width: 80px; height: 80px;">
+                🔒
+            </div>
+            <h3>Secure</h3>
+            <p>Password hashing and secure session management</p>
+        </div>
+        <div class="col-md-4 text-center mb-4">
+            <div class="feature-icon bg-success bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center fs-2 mb-3" style="width: 80px; height: 80px;">
+                👥
+            </div>
+            <h3>Dual Access</h3>
+            <p>Separate portals for users and employees</p>
+        </div>
+        <div class="col-md-4 text-center mb-4">
+            <div class="feature-icon bg-info bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center fs-2 mb-3" style="width: 80px; height: 80px;">
+                ⚡
+            </div>
+            <h3>Fast</h3>
+            <p>Built with Flask for optimal performance</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

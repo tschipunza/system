@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}My Vehicle Assignments{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2>My Vehicle Assignments</h2>
+            <p class="text-muted">View all vehicles assigned to you</p>
+        </div>
+    </div>
+
+    {% if assignments %}
+    <div class="row">
+        <div class="col-md-12 mb-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h5>Total Assignments</h5>
+                            <h3 class="text-primary">{{ assignments|length }}</h3>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Active</h5>
+                            <h3 class="text-success">{{ assignments|selectattr('status', 'equalto', 'active')|list|length }}</h3>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Completed</h5>
+                            <h3 class="text-secondary">{{ assignments|selectattr('status', 'equalto', 'completed')|list|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Assignment Date</th>
+                            <th>Return Date</th>
+                            <th>Distance</th>
+                            <th>Status</th>
+                            <th>Assigned By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>
+                                <strong>{{ assignment.vehicle_number }}</strong><br>
+                                <small>{{ assignment.make }} {{ assignment.model }} ({{ assignment.year }})</small><br>
+                                <small class="text-muted">{{ assignment.color }}</small>
+                            </td>
+                            <td>{{ assignment.assignment_date.strftime('%Y-%m-%d %H:%M') if assignment.assignment_date else 'N/A' }}</td>
+                            <td>{{ assignment.return_date.strftime('%Y-%m-%d %H:%M') if assignment.return_date else '-' }}</td>
+                            <td>
+                                {% if assignment.mileage_at_assignment and assignment.mileage_at_return %}
+                                    <strong>{{ assignment.mileage_at_return - assignment.mileage_at_assignment }} km</strong>
+                                {% elif assignment.mileage_at_assignment %}
+                                    <small class="text-muted">In progress</small>
+                                {% else %}
+                                    <small class="text-muted">Not recorded</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if assignment.status == 'active' %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif assignment.status == 'completed' %}
+                                    <span class="badge bg-secondary">Completed</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ assignment.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ assignment.assigned_by_name or 'N/A' }}</td>
+                            <td>
+                                <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" class="btn btn-sm btn-info" title="View Details">
+                                    👁️ View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h4>No assignments found</h4>
+        <p>You don't have any vehicle assignments yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

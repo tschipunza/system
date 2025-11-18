@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Create Job Card{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">📝 Create Service Job Card</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('create_job_card') }}">
+                        <!-- Vehicle Selection -->
+                        <h5 class="border-bottom pb-2 mb-3">Vehicle Information</h5>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="vehicle_id" class="form-label">Vehicle *</label>
+                                <select class="form-select" id="vehicle_id" name="vehicle_id" required>
+                                    <option value="">Select a vehicle</option>
+                                    {% for vehicle in vehicles %}
+                                    <option value="{{ vehicle.id }}">
+                                        {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Customer Information -->
+                        <h5 class="border-bottom pb-2 mb-3 mt-4">Customer Information</h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="customer_name" class="form-label">Customer Name</label>
+                                <input type="text" class="form-control" id="customer_name" name="customer_name">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="customer_phone" class="form-label">Phone</label>
+                                <input type="tel" class="form-control" id="customer_phone" name="customer_phone">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="customer_email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="customer_email" name="customer_email">
+                            </div>
+                        </div>
+
+                        <!-- Service Details -->
+                        <h5 class="border-bottom pb-2 mb-3 mt-4">Service Details</h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="expected_completion" class="form-label">Expected Completion</label>
+                                <input type="datetime-local" class="form-control" id="expected_completion" name="expected_completion">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="odometer_in" class="form-label">Odometer In (km)</label>
+                                <input type="number" class="form-control" id="odometer_in" name="odometer_in">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="fuel_level" class="form-label">Fuel Level</label>
+                                <select class="form-select" id="fuel_level" name="fuel_level">
+                                    <option value="">Select fuel level</option>
+                                    <option value="Empty">Empty (0%)</option>
+                                    <option value="1/4">1/4 Tank (25%)</option>
+                                    <option value="1/2">1/2 Tank (50%)</option>
+                                    <option value="3/4">3/4 Tank (75%)</option>
+                                    <option value="Full">Full (100%)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="assigned_technician" class="form-label">Assigned Technician</label>
+                                <select class="form-select" id="assigned_technician" name="assigned_technician">
+                                    <option value="">Unassigned</option>
+                                    {% for tech in technicians %}
+                                    <option value="{{ tech.id }}">{{ tech.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="priority" class="form-label">Priority</label>
+                                <select class="form-select" id="priority" name="priority">
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="reported_issues" class="form-label">Reported Issues/Problems *</label>
+                            <textarea class="form-control" id="reported_issues" name="reported_issues" rows="3" 
+                                      placeholder="Describe the issues reported by the customer..." required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="diagnosis" class="form-label">Diagnosis</label>
+                            <textarea class="form-control" id="diagnosis" name="diagnosis" rows="3" 
+                                      placeholder="Technician's diagnosis of the problem..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="recommended_services" class="form-label">Recommended Services</label>
+                            <textarea class="form-control" id="recommended_services" name="recommended_services" rows="3" 
+                                      placeholder="List recommended services and repairs..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Additional Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="2" 
+                                      placeholder="Any additional notes..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('job_cards') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Job Card
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

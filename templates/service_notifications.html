@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Service Notifications{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>🔔 Service Due Notifications</h2>
+        <div>
+            <span class="badge bg-danger">{{ overdue|length }} Overdue</span>
+            <span class="badge bg-warning text-dark">{{ due_soon|length }} Due Soon</span>
+            <span class="badge bg-info">{{ upcoming|length }} Upcoming</span>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Service notifications are automatically generated based on the latest mileage from fuel tracking records and next service mileage from service history.
+    </div>
+
+    {% if overdue %}
+    <div class="card border-danger mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">🚨 Overdue Service ({{ overdue|length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Current Mileage</th>
+                            <th>Service Due At</th>
+                            <th>Overdue By</th>
+                            <th>Last Service</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehicle in overdue %}
+                        <tr>
+                            <td>
+                                <strong>{{ vehicle.vehicle_number }}</strong><br>
+                                <small class="text-muted">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})</small>
+                            </td>
+                            <td>
+                                {% if vehicle.latest_mileage %}
+                                    {{ "{:,}".format(vehicle.latest_mileage) }} km
+                                {% else %}
+                                    <span class="text-muted">No data</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.next_service_mileage %}
+                                    {{ "{:,}".format(vehicle.next_service_mileage) }} km
+                                {% endif %}
+                                {% if vehicle.next_service_date %}
+                                    <br><small>{{ vehicle.next_service_date.strftime('%Y-%m-%d') }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.km_until_service is not none %}
+                                    <span class="badge bg-danger">{{ "{:,}".format(abs(vehicle.km_until_service)) }} km</span>
+                                {% endif %}
+                                {% if vehicle.days_until_service is not none and vehicle.days_until_service < 0 %}
+                                    <br><span class="badge bg-danger">{{ abs(vehicle.days_until_service) }} days</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.last_service_type %}
+                                    {{ vehicle.last_service_type }}<br>
+                                    <small class="text-muted">{{ vehicle.last_service_date.strftime('%Y-%m-%d') if vehicle.last_service_date else 'N/A' }}</small>
+                                {% else %}
+                                    <span class="text-muted">No history</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('create_job_card') }}?vehicle_id={{ vehicle.id }}" class="btn btn-sm btn-primary" title="Create Job Card">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </a>
+                                <a href="{{ url_for('vehicle_service_history', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-info" title="Service History">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if due_soon %}
+    <div class="card border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">⚠️ Due Soon (Within 1000 km or 7 days) - {{ due_soon|length }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Current Mileage</th>
+                            <th>Service Due At</th>
+                            <th>Remaining</th>
+                            <th>Last Service</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehicle in due_soon %}
+                        <tr>
+                            <td>
+                                <strong>{{ vehicle.vehicle_number }}</strong><br>
+                                <small class="text-muted">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})</small>
+                            </td>
+                            <td>
+                                {% if vehicle.latest_mileage %}
+                                    {{ "{:,}".format(vehicle.latest_mileage) }} km
+                                {% else %}
+                                    <span class="text-muted">No data</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.next_service_mileage %}
+                                    {{ "{:,}".format(vehicle.next_service_mileage) }} km
+                                {% endif %}
+                                {% if vehicle.next_service_date %}
+                                    <br><small>{{ vehicle.next_service_date.strftime('%Y-%m-%d') }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.km_until_service is not none and vehicle.km_until_service > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ "{:,}".format(vehicle.km_until_service) }} km</span>
+                                {% endif %}
+                                {% if vehicle.days_until_service is not none and vehicle.days_until_service > 0 %}
+                                    <br><span class="badge bg-warning text-dark">{{ vehicle.days_until_service }} days</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.last_service_type %}
+                                    {{ vehicle.last_service_type }}<br>
+                                    <small class="text-muted">{{ vehicle.last_service_date.strftime('%Y-%m-%d') if vehicle.last_service_date else 'N/A' }}</small>
+                                {% else %}
+                                    <span class="text-muted">No history</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('create_job_card') }}?vehicle_id={{ vehicle.id }}" class="btn btn-sm btn-primary" title="Create Job Card">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </a>
+                                <a href="{{ url_for('vehicle_service_history', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-info" title="Service History">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if upcoming %}
+    <div class="card border-success mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ Upcoming Service - {{ upcoming|length }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Current Mileage</th>
+                            <th>Service Due At</th>
+                            <th>Remaining</th>
+                            <th>Last Service</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehicle in upcoming %}
+                        <tr>
+                            <td>
+                                <strong>{{ vehicle.vehicle_number }}</strong><br>
+                                <small class="text-muted">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})</small>
+                            </td>
+                            <td>
+                                {% if vehicle.latest_mileage %}
+                                    {{ "{:,}".format(vehicle.latest_mileage) }} km
+                                {% else %}
+                                    <span class="text-muted">No data</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.next_service_mileage %}
+                                    {{ "{:,}".format(vehicle.next_service_mileage) }} km
+                                {% endif %}
+                                {% if vehicle.next_service_date %}
+                                    <br><small>{{ vehicle.next_service_date.strftime('%Y-%m-%d') }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.km_until_service is not none %}
+                                    <span class="badge bg-success">{{ "{:,}".format(vehicle.km_until_service) }} km</span>
+                                {% endif %}
+                                {% if vehicle.days_until_service is not none %}
+                                    <br><span class="badge bg-success">{{ vehicle.days_until_service }} days</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.last_service_type %}
+                                    {{ vehicle.last_service_type }}<br>
+                                    <small class="text-muted">{{ vehicle.last_service_date.strftime('%Y-%m-%d') if vehicle.last_service_date else 'N/A' }}</small>
+                                {% else %}
+                                    <span class="text-muted">No history</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('vehicle_service_history', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-info" title="Service History">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if no_data %}
+    <div class="card border-secondary mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">📋 No Service Data - {{ no_data|length }}</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">These vehicles don't have service schedules set up or fuel tracking data.</p>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Current Mileage</th>
+                            <th>Last Service</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehicle in no_data %}
+                        <tr>
+                            <td>
+                                <strong>{{ vehicle.vehicle_number }}</strong><br>
+                                <small class="text-muted">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})</small>
+                            </td>
+                            <td>
+                                {% if vehicle.latest_mileage %}
+                                    {{ "{:,}".format(vehicle.latest_mileage) }} km
+                                {% else %}
+                                    <span class="text-muted">No fuel records</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehicle.last_service_type %}
+                                    {{ vehicle.last_service_type }}<br>
+                                    <small class="text-muted">{{ vehicle.last_service_date.strftime('%Y-%m-%d') if vehicle.last_service_date else 'N/A' }}</small>
+                                {% else %}
+                                    <span class="text-muted">No service history</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('add_service') }}?vehicle_id={{ vehicle.id }}" class="btn btn-sm btn-success" title="Add Service Record">
+                                    <i class="fas fa-plus"></i>
+                                </a>
+                                <a href="{{ url_for('add_fuel_record') }}?vehicle_id={{ vehicle.id }}" class="btn btn-sm btn-warning" title="Add Fuel Record">
+                                    <i class="fas fa-gas-pump"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not overdue and not due_soon and not upcoming and not no_data %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No vehicles found. Please add vehicles and service records.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
