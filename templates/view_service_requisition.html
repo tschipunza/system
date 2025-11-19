@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}View Service Requisition{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <a href="{{ url_for('service_requisitions_list') }}" class="btn btn-secondary mb-3">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Requisition Details -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Service Requisition: {{ requisition.requisition_number }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Date Requested</h6>
+                            <p>{{ requisition.date_requested.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Overall Status</h6>
+                            <p>
+                                {% if requisition.overall_status == 'approved' %}
+                                    <span class="badge bg-success fs-6">Approved</span>
+                                {% elif requisition.overall_status == 'rejected' %}
+                                    <span class="badge bg-danger fs-6">Rejected</span>
+                                {% elif requisition.overall_status == 'awaiting_director' %}
+                                    <span class="badge bg-info fs-6">Awaiting Director</span>
+                                {% else %}
+                                    <span class="badge bg-warning fs-6">Pending</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3">Vehicle Information</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Registration</h6>
+                            <p><strong>{{ requisition.vehicle_number }}</strong></p>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Make</h6>
+                            <p>{{ requisition.make }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Model</h6>
+                            <p>{{ requisition.model }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Current Mileage</h6>
+                            <p>{{ requisition.current_mileage or 'N/A' }} km</p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3">Requester Information</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <h6 class="text-muted">Requested By</h6>
+                            <p>{{ requisition.requested_by_name }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-muted">Department</h6>
+                            <p>{{ requisition.requester_department or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-muted">Email</h6>
+                            <p>{{ requisition.requester_email }}</p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3">Work Description</h5>
+                    <div class="alert alert-light">
+                        <p>{{ requisition.work_description }}</p>
+                    </div>
+
+                    {% if requisition.service_history %}
+                    <h5 class="mb-3">Service History Notes</h5>
+                    <div class="alert alert-light">
+                        <p>{{ requisition.service_history }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Service History -->
+            {% if service_history %}
+            <div class="card mt-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Recent Service History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Provider</th>
+                                    <th>Cost</th>
+                                    <th>Mileage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for service in service_history %}
+                                <tr>
+                                    <td>{{ service.service_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ service.service_type }}</td>
+                                    <td>{{ service.service_provider or 'N/A' }}</td>
+                                    <td>${{ "%.2f"|format(service.cost) if service.cost else 'N/A' }}</td>
+                                    <td>{{ service.odometer_reading or 'N/A' }} km</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Approval Section -->
+        <div class="col-md-4">
+            <!-- Line Manager Review -->
+            <div class="card mb-3">
+                <div class="card-header {% if requisition.line_manager_status == 'approved' %}bg-success text-white{% elif requisition.line_manager_status == 'rejected' %}bg-danger text-white{% else %}bg-warning{% endif %}">
+                    <h5 class="mb-0">Line Manager Review</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted">Status</h6>
+                    <p>
+                        {% if requisition.line_manager_status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% elif requisition.line_manager_status == 'rejected' %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% else %}
+                            <span class="badge bg-warning">Pending</span>
+                        {% endif %}
+                    </p>
+
+                    {% if requisition.line_manager_name %}
+                    <h6 class="text-muted">Reviewed By</h6>
+                    <p>{{ requisition.line_manager_name }}</p>
+                    {% endif %}
+
+                    {% if requisition.line_manager_reviewed_at %}
+                    <h6 class="text-muted">Reviewed At</h6>
+                    <p>{{ requisition.line_manager_reviewed_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    {% endif %}
+
+                    {% if requisition.line_manager_comments %}
+                    <h6 class="text-muted">Comments</h6>
+                    <p class="small">{{ requisition.line_manager_comments }}</p>
+                    {% endif %}
+
+                    {% if requisition.line_manager_status == 'pending' %}
+                    <hr>
+                    <form method="POST" action="{{ url_for('review_service_requisition', requisition_id=requisition.id) }}">
+                        <input type="hidden" name="review_type" value="line_manager">
+                        <div class="mb-3">
+                            <label for="lm_comments" class="form-label">Comments</label>
+                            <textarea class="form-control" id="lm_comments" name="comments" rows="3"></textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="action" value="approve" class="btn btn-success">
+                                Approve
+                            </button>
+                            <button type="submit" name="action" value="reject" class="btn btn-danger">
+                                Reject
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Director Approval -->
+            <div class="card">
+                <div class="card-header {% if requisition.director_status == 'approved' %}bg-success text-white{% elif requisition.director_status == 'rejected' %}bg-danger text-white{% else %}bg-secondary text-white{% endif %}">
+                    <h5 class="mb-0">Director Approval</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted">Status</h6>
+                    <p>
+                        {% if requisition.director_status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% elif requisition.director_status == 'rejected' %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Pending</span>
+                        {% endif %}
+                    </p>
+
+                    {% if requisition.director_name %}
+                    <h6 class="text-muted">Approved By</h6>
+                    <p>{{ requisition.director_name }}</p>
+                    {% endif %}
+
+                    {% if requisition.director_approved_at %}
+                    <h6 class="text-muted">Approved At</h6>
+                    <p>{{ requisition.director_approved_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    {% endif %}
+
+                    {% if requisition.director_comments %}
+                    <h6 class="text-muted">Comments</h6>
+                    <p class="small">{{ requisition.director_comments }}</p>
+                    {% endif %}
+
+                    {% if requisition.line_manager_status == 'approved' and requisition.director_status == 'pending' %}
+                    <hr>
+                    <form method="POST" action="{{ url_for('review_service_requisition', requisition_id=requisition.id) }}">
+                        <input type="hidden" name="review_type" value="director">
+                        <div class="mb-3">
+                            <label for="dir_comments" class="form-label">Comments</label>
+                            <textarea class="form-control" id="dir_comments" name="comments" rows="3"></textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="action" value="approve" class="btn btn-success">
+                                Approve
+                            </button>
+                            <button type="submit" name="action" value="reject" class="btn btn-danger">
+                                Reject
+                            </button>
+                        </div>
+                    </form>
+                    {% elif requisition.line_manager_status != 'approved' and requisition.director_status == 'pending' %}
+                    <div class="alert alert-info small">
+                        Awaiting line manager approval
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mt-3">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button onclick="window.print()" class="btn btn-outline-primary">
+                            <i class="bi bi-printer"></i> Print Requisition
+                        </button>
+                        {% if requisition.overall_status == 'approved' %}
+                        <hr>
+                        <p class="text-muted small mb-2">Convert this requisition to:</p>
+                        <a href="{{ url_for('create_job_card', requisition_id=requisition.id) }}" class="btn btn-success">
+                            <i class="bi bi-clipboard-plus"></i> Create Job Card
+                        </a>
+                        <a href="{{ url_for('add_service', requisition_id=requisition.id) }}" class="btn btn-info">
+                            <i class="bi bi-wrench"></i> Add Service Record
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .card-header, nav, .sidebar, .col-md-4 {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+    }
+    .col-md-8 {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+    .card-body {
+        padding: 10px !important;
+    }
+    body {
+        font-size: 11pt;
+    }
+    h4, h5 {
+        font-size: 14pt !important;
+        margin-bottom: 8px !important;
+    }
+    h6 {
+        font-size: 10pt !important;
+        margin-bottom: 4px !important;
+    }
+    p {
+        margin-bottom: 8px !important;
+        font-size: 11pt;
+    }
+    hr {
+        margin: 8px 0 !important;
+    }
+    .row {
+        margin-bottom: 8px !important;
+    }
+    .alert {
+        padding: 8px !important;
+        margin-bottom: 8px !important;
+    }
+    .table {
+        font-size: 9pt !important;
+    }
+    .table th, .table td {
+        padding: 4px !important;
+    }
+    @page {
+        margin: 0.5in;
+        size: A4;
+    }
+}
+</style>
+{% endblock %}

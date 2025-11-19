@@ -153,9 +153,12 @@
             <a class="nav-link" data-bs-toggle="collapse" href="#serviceMenu" role="button" aria-expanded="false">
                 🔧 Service & Maintenance
             </a>
-            <div class="collapse sidebar-submenu {% if request.endpoint in ['service_maintenance', 'add_service', 'view_service', 'edit_service', 'vehicle_service_history', 'job_cards', 'create_job_card', 'view_job_card', 'edit_job_card', 'print_job_card', 'service_notifications'] %}show{% endif %}" id="serviceMenu">
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['service_maintenance', 'add_service', 'view_service', 'edit_service', 'vehicle_service_history', 'job_cards', 'create_job_card', 'view_job_card', 'edit_job_card', 'print_job_card', 'service_notifications', 'service_requisitions_list', 'create_service_requisition', 'view_service_requisition'] %}show{% endif %}" id="serviceMenu">
                 <a class="nav-link {% if request.endpoint == 'service_notifications' %}active{% endif %}" href="{{ url_for('service_notifications') }}">
                     🔔 Service Notifications
+                </a>
+                <a class="nav-link {% if request.endpoint in ['service_requisitions_list', 'create_service_requisition', 'view_service_requisition'] %}active{% endif %}" href="{{ url_for('service_requisitions_list') }}">
+                    📄 Service Requisitions
                 </a>
                 <a class="nav-link {% if request.endpoint in ['service_maintenance', 'view_service', 'edit_service'] %}active{% endif %}" href="{{ url_for('service_maintenance') }}">
                     📋 Service Records
@@ -194,7 +197,7 @@
             <a class="nav-link" data-bs-toggle="collapse" href="#settingsMenu" role="button" aria-expanded="false">
                 ⚙️ Settings
             </a>
-            <div class="collapse sidebar-submenu {% if request.endpoint in ['settings', 'profile_settings', 'notification_settings', 'backup_settings'] %}show{% endif %}" id="settingsMenu">
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['settings', 'profile_settings', 'notification_settings', 'backup_settings', 'manage_employees', 'edit_employee', 'manage_roles', 'edit_role', 'create_role'] %}show{% endif %}" id="settingsMenu">
                 <a class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">
                     🔧 System Settings
                 </a>
@@ -206,6 +209,12 @@
                 </a>
                 <a class="nav-link {% if request.endpoint == 'backup_settings' %}active{% endif %}" href="{{ url_for('backup_settings') }}">
                     💾 Backups
+                </a>
+                <a class="nav-link {% if request.endpoint in ['manage_employees', 'edit_employee'] %}active{% endif %}" href="{{ url_for('manage_employees') }}">
+                    👥 Manage Employees
+                </a>
+                <a class="nav-link {% if request.endpoint in ['manage_roles', 'edit_role', 'create_role'] %}active{% endif %}" href="{{ url_for('manage_roles') }}">
+                    🔐 Roles & Permissions
                 </a>
             </div>
             

@@ -93,9 +93,15 @@
                             <td>${{ "%.2f"|format(service.cost) if service.cost else '0.00' }}</td>
                             <td>{{ service.odometer_reading if service.odometer_reading else 'N/A' }} km</td>
                             <td>
-                                {% if service.next_service_date %}
-                                    {{ service.next_service_date.strftime('%Y-%m-%d') }}<br>
-                                    <small class="text-muted">{{ service.next_service_mileage if service.next_service_mileage else 'N/A' }} km</small>
+                                {% if service.next_service_date or service.next_service_mileage %}
+                                    <div>
+                                        {% if service.next_service_date %}
+                                        <i class="fas fa-calendar"></i> {{ service.next_service_date.strftime('%Y-%m-%d') }}<br>
+                                        {% endif %}
+                                        {% if service.next_service_mileage %}
+                                        <small class="text-muted"><i class="fas fa-tachometer-alt"></i> {{ service.next_service_mileage }} km</small>
+                                        {% endif %}
+                                    </div>
                                 {% else %}
                                     <span class="text-muted">Not set</span>
                                 {% endif %}

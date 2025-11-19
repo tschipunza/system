@@ -1152,6 +1152,7 @@ def add_service():
         parts_replaced = request.form.get('parts_replaced')
         status = request.form.get('status', 'completed')
         notes = request.form.get('notes')
+        requisition_id = request.form.get('requisition_id') or None
         
         # Handle file upload
         invoice_path = None
@@ -1183,12 +1184,22 @@ def add_service():
                   odometer_reading, next_service_date, next_service_mileage, description,
                   parts_replaced, invoice_path, status, session['employee_id'], notes))
             
+            service_id = cursor.lastrowid
+            
             # Update vehicle's last_service_date
             cursor.execute("""
                 UPDATE vehicles 
                 SET last_service_date = %s, mileage = %s
                 WHERE id = %s
             """, (service_date, odometer_reading, vehicle_id))
+            
+            # If created from requisition, link them
+            if requisition_id:
+                cursor.execute("""
+                    UPDATE service_requisitions 
+                    SET notes = CONCAT(COALESCE(notes, ''), '\nService Record Created: ID #', %s)
+                    WHERE id = %s
+                """, (service_id, requisition_id))
             
             conn.commit()
             flash('Service record added successfully!', 'success')
@@ -1207,7 +1218,34 @@ def add_service():
             ORDER BY vehicle_number
         """)
         vehicles = cursor.fetchall()
-        return render_template('add_service.html', vehicles=vehicles)
+        
+        # Check if creating from requisition
+        requisition_id = request.args.get('requisition_id')
+        requisition = None
+        
+        if requisition_id:
+            cursor.execute("""
+                SELECT sr.*, 
+                       e.username as requester_name,
+                       e.email as requester_email,
+                       v.vehicle_number as vehicle_reg,
+                       v.make as vehicle_make,
+                       v.model as vehicle_model
+                FROM service_requisitions sr
+                JOIN employees e ON sr.requested_by = e.id
+                JOIN vehicles v ON sr.vehicle_id = v.id
+                WHERE sr.id = %s AND sr.overall_status = 'approved'
+            """, (requisition_id,))
+            requisition = cursor.fetchone()
+            
+            if not requisition:
+                flash('Requisition not found or not approved!', 'warning')
+                requisition_id = None
+        
+        return render_template('add_service.html', 
+                             vehicles=vehicles,
+                             requisition=requisition,
+                             requisition_id=requisition_id)
     finally:
         cursor.close()
         conn.close()
@@ -1461,7 +1499,7 @@ def create_job_card():
         customer_name = request.form.get('customer_name')
         customer_phone = request.form.get('customer_phone')
         customer_email = request.form.get('customer_email')
-        expected_completion = request.form.get('expected_completion')
+        expected_completion = request.form.get('expected_completion') or None
         odometer_in = request.form.get('odometer_in') or None
         fuel_level = request.form.get('fuel_level')
         reported_issues = request.form.get('reported_issues')
@@ -1470,6 +1508,7 @@ def create_job_card():
         assigned_technician = request.form.get('assigned_technician') or None
         priority = request.form.get('priority', 'normal')
         notes = request.form.get('notes')
+        requisition_id = request.form.get('requisition_id') or None
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1490,6 +1529,15 @@ def create_job_card():
                   recommended_services, assigned_technician, priority, notes, session['employee_id']))
             
             job_card_id = cursor.lastrowid
+            
+            # If created from requisition, update the service record reference
+            if requisition_id:
+                cursor.execute("""
+                    UPDATE service_requisitions 
+                    SET notes = CONCAT(COALESCE(notes, ''), '\nJob Card Created: ', %s)
+                    WHERE id = %s
+                """, (job_card_number, requisition_id))
+            
             conn.commit()
             
             flash(f'Job Card {job_card_number} created successfully!', 'success')
@@ -1508,7 +1556,34 @@ def create_job_card():
         cursor.execute("SELECT id, username FROM employees ORDER BY username")
         technicians = cursor.fetchall()
         
-        return render_template('create_job_card.html', vehicles=vehicles, technicians=technicians)
+        # Check if creating from requisition
+        requisition_id = request.args.get('requisition_id')
+        requisition = None
+        
+        if requisition_id:
+            cursor.execute("""
+                SELECT sr.*, 
+                       e.username as requester_name,
+                       e.email as requester_email,
+                       v.vehicle_number as vehicle_reg,
+                       v.make as vehicle_make,
+                       v.model as vehicle_model
+                FROM service_requisitions sr
+                JOIN employees e ON sr.requested_by = e.id
+                JOIN vehicles v ON sr.vehicle_id = v.id
+                WHERE sr.id = %s AND sr.overall_status = 'approved'
+            """, (requisition_id,))
+            requisition = cursor.fetchone()
+            
+            if not requisition:
+                flash('Requisition not found or not approved!', 'warning')
+                requisition_id = None
+        
+        return render_template('create_job_card.html', 
+                             vehicles=vehicles, 
+                             technicians=technicians,
+                             requisition=requisition,
+                             requisition_id=requisition_id)
     finally:
         cursor.close()
         conn.close()
@@ -2374,3 +2449,673 @@ def test_whatsapp():
     # GET request
     return render_template('test_whatsapp.html')
 
+
+# Service Requisition Routes
+@app.route('/employee/service_requisitions')
+@login_required
+def service_requisitions_list():
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get all requisitions with vehicle and requester details
+        cursor.execute("""
+            SELECT sr.*, 
+                   v.vehicle_number, v.make, v.model,
+                   e.username as requested_by_name,
+                   lm.username as line_manager_name,
+                   d.username as director_name
+            FROM service_requisitions sr
+            JOIN vehicles v ON sr.vehicle_id = v.id
+            JOIN employees e ON sr.requested_by = e.id
+            LEFT JOIN employees lm ON sr.line_manager_id = lm.id
+            LEFT JOIN employees d ON sr.director_id = d.id
+            ORDER BY sr.created_at DESC
+        """)
+        requisitions = cursor.fetchall()
+        
+        return render_template('service_requisitions_list.html', requisitions=requisitions)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/create_service_requisition', methods=['GET', 'POST'])
+@login_required
+def create_service_requisition():
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        vehicle_id = request.form.get('vehicle_id')
+        current_mileage = request.form.get('current_mileage')
+        work_description = request.form.get('work_description')
+        service_history = request.form.get('service_history')
+        
+        if not all([vehicle_id, work_description]):
+            flash('Vehicle and work description are required!', 'danger')
+            return redirect(url_for('create_service_requisition'))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Get vehicle details
+            cursor.execute("SELECT vehicle_number, make, model FROM vehicles WHERE id = %s", (vehicle_id,))
+            vehicle = cursor.fetchone()
+            
+            if not vehicle:
+                flash('Vehicle not found!', 'danger')
+                return redirect(url_for('create_service_requisition'))
+            
+            # Generate requisition number
+            cursor.execute("SELECT COUNT(*) as count FROM service_requisitions")
+            count = cursor.fetchone()['count']
+            requisition_number = f"SR-{count + 1:05d}"
+            
+            # Insert requisition
+            cursor.execute("""
+                INSERT INTO service_requisitions 
+                (requisition_number, vehicle_id, vehicle_reg_number, vehicle_make, 
+                 vehicle_model, current_mileage, work_description, requested_by, service_history)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (requisition_number, vehicle_id, vehicle['vehicle_number'], 
+                  vehicle['make'], vehicle['model'], 
+                  current_mileage if current_mileage else None,
+                  work_description, session['employee_id'], service_history))
+            
+            conn.commit()
+            flash('Service requisition created successfully!', 'success')
+            return redirect(url_for('service_requisitions_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error creating requisition: {str(e)}', 'danger')
+            return redirect(url_for('create_service_requisition'))
+        finally:
+            cursor.close()
+            conn.close()
+    
+    # GET request - show form
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get all vehicles
+        cursor.execute("SELECT * FROM vehicles ORDER BY vehicle_number")
+        vehicles = cursor.fetchall()
+        
+        return render_template('create_service_requisition.html', vehicles=vehicles)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/view_service_requisition/<int:requisition_id>')
+@login_required
+def view_service_requisition(requisition_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get requisition details
+        cursor.execute("""
+            SELECT sr.*, 
+                   v.vehicle_number, v.make, v.model, v.year, v.color, v.vehicle_type,
+                   e.username as requested_by_name, e.email as requester_email,
+                   e.department as requester_department,
+                   lm.username as line_manager_name,
+                   d.username as director_name
+            FROM service_requisitions sr
+            JOIN vehicles v ON sr.vehicle_id = v.id
+            JOIN employees e ON sr.requested_by = e.id
+            LEFT JOIN employees lm ON sr.line_manager_id = lm.id
+            LEFT JOIN employees d ON sr.director_id = d.id
+            WHERE sr.id = %s
+        """, (requisition_id,))
+        requisition = cursor.fetchone()
+        
+        if not requisition:
+            flash('Requisition not found!', 'danger')
+            return redirect(url_for('service_requisitions_list'))
+        
+        # Get service history for the vehicle
+        cursor.execute("""
+            SELECT * FROM service_maintenance 
+            WHERE vehicle_id = %s 
+            ORDER BY service_date DESC 
+            LIMIT 5
+        """, (requisition['vehicle_id'],))
+        service_history = cursor.fetchall()
+        
+        return render_template('view_service_requisition.html', 
+                             requisition=requisition,
+                             service_history=service_history)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/review_service_requisition/<int:requisition_id>', methods=['POST'])
+@login_required
+def review_service_requisition(requisition_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    action = request.form.get('action')  # 'approve' or 'reject'
+    comments = request.form.get('comments')
+    review_type = request.form.get('review_type')  # 'line_manager' or 'director'
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if review_type == 'line_manager':
+            status = 'approved' if action == 'approve' else 'rejected'
+            cursor.execute("""
+                UPDATE service_requisitions 
+                SET line_manager_id = %s,
+                    line_manager_status = %s,
+                    line_manager_comments = %s,
+                    line_manager_reviewed_at = NOW(),
+                    overall_status = %s
+                WHERE id = %s
+            """, (session['employee_id'], status, comments, 
+                  'awaiting_director' if status == 'approved' else 'rejected',
+                  requisition_id))
+            
+            flash(f'Requisition {status} by line manager!', 'success')
+            
+        elif review_type == 'director':
+            # Check if line manager approved
+            cursor.execute("""
+                SELECT line_manager_status FROM service_requisitions WHERE id = %s
+            """, (requisition_id,))
+            req = cursor.fetchone()
+            
+            if req and req['line_manager_status'] != 'approved':
+                flash('Line manager must approve first!', 'warning')
+                return redirect(url_for('view_service_requisition', requisition_id=requisition_id))
+            
+            status = 'approved' if action == 'approve' else 'rejected'
+            cursor.execute("""
+                UPDATE service_requisitions 
+                SET director_id = %s,
+                    director_status = %s,
+                    director_comments = %s,
+                    director_approved_at = NOW(),
+                    overall_status = %s
+                WHERE id = %s
+            """, (session['employee_id'], status, comments, status, requisition_id))
+            
+            flash(f'Requisition {status} by director!', 'success')
+        
+        conn.commit()
+        return redirect(url_for('view_service_requisition', requisition_id=requisition_id))
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error reviewing requisition: {str(e)}', 'danger')
+        return redirect(url_for('view_service_requisition', requisition_id=requisition_id))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Employee Management Routes (Admin)
+@app.route('/employee/manage_employees')
+@login_required
+def manage_employees():
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        # Get all employees
+        cursor.execute("""
+            SELECT id, employee_id, username, email, department, position, 
+                   role, status, phone, created_at, updated_at
+            FROM employees
+            ORDER BY created_at DESC
+        """)
+        employees = cursor.fetchall()
+        
+        return render_template('manage_employees.html', employees=employees)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/edit_employee/<int:emp_id>', methods=['GET', 'POST'])
+@login_required
+def edit_employee(emp_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        if request.method == 'POST':
+            username = request.form.get('username')
+            email = request.form.get('email')
+            department = request.form.get('department')
+            position = request.form.get('position')
+            role = request.form.get('role')
+            status = request.form.get('status')
+            phone = request.form.get('phone')
+            
+            if not all([username, email, role, status]):
+                flash('Username, email, role and status are required!', 'danger')
+                return redirect(url_for('edit_employee', emp_id=emp_id))
+            
+            # Check for duplicate username (excluding current employee)
+            cursor.execute("SELECT id FROM employees WHERE username = %s AND id != %s", (username, emp_id))
+            if cursor.fetchone():
+                flash('Username already exists!', 'danger')
+                return redirect(url_for('edit_employee', emp_id=emp_id))
+            
+            # Check for duplicate email (excluding current employee)
+            cursor.execute("SELECT id FROM employees WHERE email = %s AND id != %s", (email, emp_id))
+            if cursor.fetchone():
+                flash('Email already exists!', 'danger')
+                return redirect(url_for('edit_employee', emp_id=emp_id))
+            
+            cursor.execute("""
+                UPDATE employees 
+                SET username = %s, email = %s, department = %s, position = %s,
+                    role = %s, status = %s, phone = %s
+                WHERE id = %s
+            """, (username, email, department, position, role, status, phone, emp_id))
+            
+            conn.commit()
+            flash('Employee updated successfully!', 'success')
+            return redirect(url_for('manage_employees'))
+        
+        # GET request - fetch employee details
+        cursor.execute("SELECT * FROM employees WHERE id = %s", (emp_id,))
+        employee = cursor.fetchone()
+        
+        if not employee:
+            flash('Employee not found!', 'danger')
+            return redirect(url_for('manage_employees'))
+        
+        return render_template('edit_employee.html', employee=employee)
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error updating employee: {str(e)}', 'danger')
+        return redirect(url_for('edit_employee', emp_id=emp_id))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/delete_employee/<int:emp_id>', methods=['POST'])
+@login_required
+def delete_employee(emp_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        # Prevent deleting yourself
+        if emp_id == session['employee_id']:
+            flash('You cannot delete your own account!', 'danger')
+            return redirect(url_for('manage_employees'))
+        
+        cursor.execute("DELETE FROM employees WHERE id = %s", (emp_id,))
+        conn.commit()
+        
+        flash('Employee deleted successfully!', 'success')
+        return redirect(url_for('manage_employees'))
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error deleting employee: {str(e)}', 'danger')
+        return redirect(url_for('manage_employees'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/toggle_employee_status/<int:emp_id>', methods=['POST'])
+@login_required
+def toggle_employee_status(emp_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        # Get current status
+        cursor.execute("SELECT status FROM employees WHERE id = %s", (emp_id,))
+        employee = cursor.fetchone()
+        
+        if not employee:
+            flash('Employee not found!', 'danger')
+            return redirect(url_for('manage_employees'))
+        
+        # Toggle status
+        new_status = 'inactive' if employee['status'] == 'active' else 'active'
+        cursor.execute("UPDATE employees SET status = %s WHERE id = %s", (new_status, emp_id))
+        conn.commit()
+        
+        flash(f'Employee status changed to {new_status}!', 'success')
+        return redirect(url_for('manage_employees'))
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error toggling employee status: {str(e)}', 'danger')
+        return redirect(url_for('manage_employees'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# Roles and Permissions Management
+@app.route('/employee/manage_roles')
+@login_required
+def manage_roles():
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        # Get all roles with permission counts
+        cursor.execute("""
+            SELECT r.id, r.role_key, r.role_name, r.description, r.is_system_role,
+                   COUNT(rp.permission_id) as permission_count,
+                   COUNT(DISTINCT e.id) as employee_count
+            FROM roles r
+            LEFT JOIN role_permissions rp ON r.id = rp.role_id
+            LEFT JOIN employees e ON e.role = r.role_key
+            GROUP BY r.id
+            ORDER BY r.role_name
+        """)
+        roles = cursor.fetchall()
+        
+        return render_template('manage_roles.html', roles=roles)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/edit_role/<int:role_id>', methods=['GET', 'POST'])
+@login_required
+def edit_role(role_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        if request.method == 'POST':
+            permission_ids = request.form.getlist('permissions')
+            
+            # Delete existing permissions
+            cursor.execute("DELETE FROM role_permissions WHERE role_id = %s", (role_id,))
+            
+            # Insert new permissions
+            for perm_id in permission_ids:
+                cursor.execute("""
+                    INSERT INTO role_permissions (role_id, permission_id)
+                    VALUES (%s, %s)
+                """, (role_id, perm_id))
+            
+            conn.commit()
+            flash('Role permissions updated successfully!', 'success')
+            return redirect(url_for('manage_roles'))
+        
+        # GET request
+        cursor.execute("SELECT * FROM roles WHERE id = %s", (role_id,))
+        role = cursor.fetchone()
+        
+        if not role:
+            flash('Role not found!', 'danger')
+            return redirect(url_for('manage_roles'))
+        
+        # Get all permissions grouped by module
+        cursor.execute("""
+            SELECT id, permission_key, permission_name, description, module
+            FROM permissions
+            ORDER BY module, permission_name
+        """)
+        all_permissions = cursor.fetchall()
+        
+        # Group by module
+        permissions_by_module = {}
+        for perm in all_permissions:
+            module = perm['module'] or 'Other'
+            if module not in permissions_by_module:
+                permissions_by_module[module] = []
+            permissions_by_module[module].append(perm)
+        
+        # Get current role permissions
+        cursor.execute("""
+            SELECT permission_id 
+            FROM role_permissions 
+            WHERE role_id = %s
+        """, (role_id,))
+        current_permissions = [p['permission_id'] for p in cursor.fetchall()]
+        
+        return render_template('edit_role.html', 
+                             role=role,
+                             permissions_by_module=permissions_by_module,
+                             current_permissions=current_permissions)
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error updating role: {str(e)}', 'danger')
+        return redirect(url_for('manage_roles'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/create_role', methods=['GET', 'POST'])
+@login_required
+def create_role():
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        if request.method == 'POST':
+            role_key = request.form.get('role_key')
+            role_name = request.form.get('role_name')
+            description = request.form.get('description')
+            permission_ids = request.form.getlist('permissions')
+            
+            if not all([role_key, role_name]):
+                flash('Role key and name are required!', 'danger')
+                return redirect(url_for('create_role'))
+            
+            # Check for duplicate role key
+            cursor.execute("SELECT id FROM roles WHERE role_key = %s", (role_key,))
+            if cursor.fetchone():
+                flash('Role key already exists!', 'danger')
+                return redirect(url_for('create_role'))
+            
+            # Insert role
+            cursor.execute("""
+                INSERT INTO roles (role_key, role_name, description, is_system_role)
+                VALUES (%s, %s, %s, FALSE)
+            """, (role_key, role_name, description))
+            
+            role_id = cursor.lastrowid
+            
+            # Insert permissions
+            for perm_id in permission_ids:
+                cursor.execute("""
+                    INSERT INTO role_permissions (role_id, permission_id)
+                    VALUES (%s, %s)
+                """, (role_id, perm_id))
+            
+            conn.commit()
+            flash('Role created successfully!', 'success')
+            return redirect(url_for('manage_roles'))
+        
+        # GET request - show form
+        cursor.execute("""
+            SELECT id, permission_key, permission_name, description, module
+            FROM permissions
+            ORDER BY module, permission_name
+        """)
+        all_permissions = cursor.fetchall()
+        
+        # Group by module
+        permissions_by_module = {}
+        for perm in all_permissions:
+            module = perm['module'] or 'Other'
+            if module not in permissions_by_module:
+                permissions_by_module[module] = []
+            permissions_by_module[module].append(perm)
+        
+        return render_template('create_role.html', 
+                             permissions_by_module=permissions_by_module)
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error creating role: {str(e)}', 'danger')
+        return redirect(url_for('create_role'))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/employee/delete_role/<int:role_id>', methods=['POST'])
+@login_required
+def delete_role(role_id):
+    if 'employee_id' not in session:
+        flash('Access denied!', 'danger')
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if current user has admin role
+        cursor.execute("SELECT role FROM employees WHERE id = %s", (session['employee_id'],))
+        current_user = cursor.fetchone()
+        
+        if not current_user or current_user['role'] != 'admin':
+            flash('Admin access required!', 'danger')
+            return redirect(url_for('employee_dashboard'))
+        
+        # Check if it's a system role
+        cursor.execute("SELECT is_system_role, role_key FROM roles WHERE id = %s", (role_id,))
+        role = cursor.fetchone()
+        
+        if not role:
+            flash('Role not found!', 'danger')
+            return redirect(url_for('manage_roles'))
+        
+        if role['is_system_role']:
+            flash('Cannot delete system roles!', 'danger')
+            return redirect(url_for('manage_roles'))
+        
+        # Check if any employees have this role
+        cursor.execute("SELECT COUNT(*) as count FROM employees WHERE role = %s", (role['role_key'],))
+        count = cursor.fetchone()['count']
+        
+        if count > 0:
+            flash(f'Cannot delete role: {count} employee(s) currently have this role!', 'danger')
+            return redirect(url_for('manage_roles'))
+        
+        # Delete role (permissions will be deleted by CASCADE)
+        cursor.execute("DELETE FROM roles WHERE id = %s", (role_id,))
+        conn.commit()
+        
+        flash('Role deleted successfully!', 'success')
+        return redirect(url_for('manage_roles'))
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error deleting role: {str(e)}', 'danger')
+        return redirect(url_for('manage_roles'))
+    finally:
+        cursor.close()
+        conn.close()

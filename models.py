@@ -20,7 +20,11 @@ CREATE TABLE IF NOT EXISTS employees (
     password_hash VARCHAR(255) NOT NULL,
     department VARCHAR(100),
     position VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    role VARCHAR(50) DEFAULT 'employee',
+    status VARCHAR(20) DEFAULT 'active',
+    phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 """
 
@@ -160,6 +164,38 @@ CREATE TABLE IF NOT EXISTS job_card_items (
 );
 """
 
+CREATE_SERVICE_REQUISITIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS service_requisitions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    requisition_number VARCHAR(50) UNIQUE NOT NULL,
+    date_requested TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    vehicle_id INT NOT NULL,
+    vehicle_reg_number VARCHAR(50),
+    vehicle_make VARCHAR(100),
+    vehicle_model VARCHAR(100),
+    current_mileage INT,
+    work_description TEXT NOT NULL,
+    requested_by INT NOT NULL,
+    service_history TEXT,
+    line_manager_id INT,
+    line_manager_status VARCHAR(20) DEFAULT 'pending',
+    line_manager_comments TEXT,
+    line_manager_reviewed_at TIMESTAMP NULL,
+    director_id INT,
+    director_status VARCHAR(20) DEFAULT 'pending',
+    director_comments TEXT,
+    director_approved_at TIMESTAMP NULL,
+    overall_status VARCHAR(20) DEFAULT 'pending',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (line_manager_id) REFERENCES employees(id) ON DELETE SET NULL,
+    FOREIGN KEY (director_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+"""
+
 def init_db():
     """Initialize database tables"""
     from app import get_db_connection
@@ -177,6 +213,7 @@ def init_db():
         cursor.execute(CREATE_SERVICE_MAINTENANCE_TABLE)
         cursor.execute(CREATE_JOB_CARDS_TABLE)
         cursor.execute(CREATE_JOB_CARD_ITEMS_TABLE)
+        cursor.execute(CREATE_SERVICE_REQUISITIONS_TABLE)
         
         # Initialize settings tables and defaults
         init_settings_db(cursor, conn)

@@ -8,10 +8,26 @@
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">📝 Create Service Job Card</h4>
+                    <h4 class="mb-0">
+                        📝 Create Service Job Card
+                        {% if requisition %}
+                        <span class="badge bg-success">From Requisition: {{ requisition.requisition_number }}</span>
+                        {% endif %}
+                    </h4>
                 </div>
                 <div class="card-body">
+                    {% if requisition %}
+                    <div class="alert alert-info">
+                        <strong>Pre-populated from Service Requisition:</strong> {{ requisition.requisition_number }}<br>
+                        <small>Vehicle: {{ requisition.vehicle_number }} - {{ requisition.make }} {{ requisition.model }}</small>
+                    </div>
+                    {% endif %}
+                    
                     <form method="POST" action="{{ url_for('create_job_card') }}">
+                        {% if requisition_id %}
+                        <input type="hidden" name="requisition_id" value="{{ requisition_id }}">
+                        {% endif %}
+                        
                         <!-- Vehicle Selection -->
                         <h5 class="border-bottom pb-2 mb-3">Vehicle Information</h5>
                         <div class="row">
@@ -20,7 +36,7 @@
                                 <select class="form-select" id="vehicle_id" name="vehicle_id" required>
                                     <option value="">Select a vehicle</option>
                                     {% for vehicle in vehicles %}
-                                    <option value="{{ vehicle.id }}">
+                                    <option value="{{ vehicle.id }}" {% if requisition and vehicle.id == requisition.vehicle_id %}selected{% endif %}>
                                         {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
                                     </option>
                                     {% endfor %}
@@ -33,7 +49,8 @@
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label for="customer_name" class="form-label">Customer Name</label>
-                                <input type="text" class="form-control" id="customer_name" name="customer_name">
+                                <input type="text" class="form-control" id="customer_name" name="customer_name"
+                                       value="{% if requisition %}{{ requisition.requester_name }}{% endif %}">
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="customer_phone" class="form-label">Phone</label>
@@ -41,7 +58,8 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="customer_email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="customer_email" name="customer_email">
+                                <input type="email" class="form-control" id="customer_email" name="customer_email"
+                                       value="{% if requisition %}{{ requisition.requester_email }}{% endif %}">
                             </div>
                         </div>
 
@@ -54,7 +72,8 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="odometer_in" class="form-label">Odometer In (km)</label>
-                                <input type="number" class="form-control" id="odometer_in" name="odometer_in">
+                                <input type="number" class="form-control" id="odometer_in" name="odometer_in"
+                                       value="{% if requisition %}{{ requisition.current_mileage }}{% endif %}">
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="fuel_level" class="form-label">Fuel Level</label>
@@ -70,6 +89,22 @@
                         </div>
 
                         <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="reported_issues" class="form-label">Reported Issues *</label>
+                                <textarea class="form-control" id="reported_issues" name="reported_issues" rows="3" required>{% if requisition %}{{ requisition.work_description }}{% endif %}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="diagnosis" class="form-label">Diagnosis</label>
+                                <textarea class="form-control" id="diagnosis" name="diagnosis" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="recommended_services" class="form-label">Recommended Services</label>
+                                <textarea class="form-control" id="recommended_services" name="recommended_services" rows="3"></textarea>
+                            </div>
+                        </div>
                             <div class="col-md-6 mb-3">
                                 <label for="assigned_technician" class="form-label">Assigned Technician</label>
                                 <select class="form-select" id="assigned_technician" name="assigned_technician">

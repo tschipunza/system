@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Service Requisitions{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>Service Requisitions</h2>
+                <a href="{{ url_for('create_service_requisition') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create New Requisition
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if requisitions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Req. No.</th>
+                                    <th>Date</th>
+                                    <th>Vehicle</th>
+                                    <th>Make/Model</th>
+                                    <th>Requested By</th>
+                                    <th>Line Manager</th>
+                                    <th>Director</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in requisitions %}
+                                <tr>
+                                    <td><strong>{{ req.requisition_number }}</strong></td>
+                                    <td>{{ req.date_requested.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ req.vehicle_number }}</td>
+                                    <td>{{ req.make }} {{ req.model }}</td>
+                                    <td>{{ req.requested_by_name }}</td>
+                                    <td>
+                                        {% if req.line_manager_status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif req.line_manager_status == 'rejected' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if req.director_status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif req.director_status == 'rejected' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if req.overall_status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif req.overall_status == 'rejected' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% elif req.overall_status == 'awaiting_director' %}
+                                            <span class="badge bg-info">Awaiting Director</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('view_service_requisition', requisition_id=req.id) }}" 
+                                           class="btn btn-sm btn-info">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <p class="mb-0">No service requisitions found. <a href="{{ url_for('create_service_requisition') }}">Create one now</a>.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5>Pending</h5>
+                    <h2>{{ requisitions|selectattr('overall_status', 'equalto', 'pending')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>Awaiting Director</h5>
+                    <h2>{{ requisitions|selectattr('overall_status', 'equalto', 'awaiting_director')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Approved</h5>
+                    <h2>{{ requisitions|selectattr('overall_status', 'equalto', 'approved')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5>Rejected</h5>
+                    <h2>{{ requisitions|selectattr('overall_status', 'equalto', 'rejected')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

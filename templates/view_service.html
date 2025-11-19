@@ -55,7 +55,7 @@
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-muted">Next Service Mileage</h6>
-                            <p>{{ service.next_service_mileage if service.next_service_mileage else 'Not set' }} km</p>
+                            <p>{% if service.next_service_mileage %}{{ service.next_service_mileage }} km{% else %}Not set{% endif %}</p>
                         </div>
                     </div>
 

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Employee{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">Edit Employee: {{ employee.username }}</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('edit_employee', emp_id=employee.id) }}">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="employee_id" class="form-label">Employee ID</label>
+                                <input type="text" class="form-control" id="employee_id" 
+                                       value="{{ employee.employee_id }}" readonly>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label">Username <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       value="{{ employee.username }}" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{ employee.email }}" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="phone" name="phone" 
+                                       value="{{ employee.phone or '' }}" placeholder="+263...">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="department" class="form-label">Department</label>
+                                <input type="text" class="form-control" id="department" name="department" 
+                                       value="{{ employee.department or '' }}" 
+                                       placeholder="e.g., IT, Finance, Operations">
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="position" class="form-label">Position/Title</label>
+                                <input type="text" class="form-control" id="position" name="position" 
+                                       value="{{ employee.position or '' }}" 
+                                       placeholder="e.g., Manager, Technician">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="role" class="form-label">Role <span class="text-danger">*</span></label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="employee" {% if employee.role == 'employee' %}selected{% endif %}>Employee</option>
+                                    <option value="manager" {% if employee.role == 'manager' %}selected{% endif %}>Manager</option>
+                                    <option value="director" {% if employee.role == 'director' %}selected{% endif %}>Director</option>
+                                    <option value="admin" {% if employee.role == 'admin' %}selected{% endif %}>Admin</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Role determines system permissions
+                                </small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
+                                <select class="form-select" id="status" name="status" required>
+                                    <option value="active" {% if employee.status == 'active' %}selected{% endif %}>Active</option>
+                                    <option value="inactive" {% if employee.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Inactive users cannot log in
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <strong>Note:</strong> Role definitions:
+                            <ul class="mb-0">
+                                <li><strong>Employee:</strong> Basic access to manage assignments and fuel records</li>
+                                <li><strong>Manager:</strong> Can review service requisitions</li>
+                                <li><strong>Director:</strong> Can approve service requisitions</li>
+                                <li><strong>Admin:</strong> Full system access including employee management</li>
+                            </ul>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">Created: {{ employee.created_at.strftime('%Y-%m-%d %H:%M') if employee.created_at else 'N/A' }}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Last Updated: {{ employee.updated_at.strftime('%Y-%m-%d %H:%M') if employee.updated_at else 'N/A' }}</small>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('manage_employees') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-warning">Update Employee</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

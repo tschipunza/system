@@ -8,10 +8,25 @@
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">🔧 Add Service/Maintenance Record</h4>
+                    <h4 class="mb-0">
+                        🔧 Add Service/Maintenance Record
+                        {% if requisition %}
+                        <span class="badge bg-info ms-2">From Requisition: {{ requisition.requisition_number }}</span>
+                        {% endif %}
+                    </h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('add_service') }}" enctype="multipart/form-data">
+                    {% if requisition %}
+                    <div class="alert alert-info">
+                        <strong>Service Requisition Details:</strong><br>
+                        <strong>Vehicle:</strong> {{ requisition.vehicle_reg }} - {{ requisition.vehicle_make }} {{ requisition.vehicle_model }}<br>
+                        <strong>Requested By:</strong> {{ requisition.requester_name }} ({{ requisition.requester_email }})<br>
+                        <strong>Work Description:</strong> {{ requisition.work_description }}
+                    </div>
+                    <input type="hidden" name="requisition_id" value="{{ requisition.id }}">
+                    {% endif %}
+                    
+                    <form method="POST" action="{{ url_for('add_service') }}{% if requisition %}?requisition_id={{ requisition.id }}{% endif %}" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="vehicle_id" class="form-label">Vehicle *</label>
@@ -20,7 +35,8 @@
                                     {% for vehicle in vehicles %}
                                     <option value="{{ vehicle.id }}" 
                                             data-mileage="{{ vehicle.mileage }}"
-                                            data-last-service="{{ vehicle.last_service_date }}">
+                                            data-last-service="{{ vehicle.last_service_date }}"
+                                            {% if requisition and vehicle.id == requisition.vehicle_id %}selected{% endif %}>
                                         {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
                                         (Current: {{ vehicle.mileage if vehicle.mileage else 'N/A' }} km)
                                     </option>
@@ -60,7 +76,8 @@
                             <div class="col-md-4 mb-3">
                                 <label for="odometer_reading" class="form-label">Odometer Reading (km)</label>
                                 <input type="number" class="form-control" id="odometer_reading" 
-                                       name="odometer_reading" placeholder="e.g., 12500">
+                                       name="odometer_reading" placeholder="e.g., 12500"
+                                       value="{% if requisition %}{{ requisition.current_mileage }}{% endif %}">
                             </div>
                         </div>
 
@@ -95,7 +112,7 @@
                         <div class="mb-3">
                             <label for="description" class="form-label">Service Description</label>
                             <textarea class="form-control" id="description" name="description" rows="3" 
-                                      placeholder="Describe the service performed..."></textarea>
+                                      placeholder="Describe the service performed...">{% if requisition %}{{ requisition.work_description }}{% endif %}</textarea>
                         </div>
 
                         <div class="mb-3">
@@ -103,6 +120,15 @@
                             <textarea class="form-control" id="parts_replaced" name="parts_replaced" rows="2" 
                                       placeholder="List parts that were replaced..."></textarea>
                         </div>
+
+                        {% if requisition and requisition.service_history %}
+                        <div class="mb-3">
+                            <label class="form-label">Requisition Service History</label>
+                            <div class="alert alert-secondary">
+                                {{ requisition.service_history }}
+                            </div>
+                        </div>
+                        {% endif %}
 
                         <div class="mb-3">
                             <label for="invoice" class="form-label">Invoice/Receipt (PNG, JPG, JPEG, PDF - Max 16MB)</label>
