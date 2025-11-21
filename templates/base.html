@@ -137,7 +137,7 @@
             <a class="nav-link" data-bs-toggle="collapse" href="#fuelMenu" role="button" aria-expanded="false">
                 ⛽ Fuel Tracking
             </a>
-            <div class="collapse sidebar-submenu {% if request.endpoint in ['fuel_records', 'add_fuel_record', 'view_fuel_record', 'my_fuel_records'] %}show{% endif %}" id="fuelMenu">
+            <div class="collapse sidebar-submenu {% if request.endpoint in ['fuel_records', 'add_fuel_record', 'view_fuel_record', 'my_fuel_records', 'fuel_reports', 'fuel_reports_print'] %}show{% endif %}" id="fuelMenu">
                 <a class="nav-link {% if request.endpoint in ['fuel_records', 'view_fuel_record'] %}active{% endif %}" href="{{ url_for('fuel_records') }}">
                     📋 All Fuel Records
                 </a>
@@ -146,6 +146,12 @@
                 </a>
                 <a class="nav-link {% if request.endpoint == 'my_fuel_records' %}active{% endif %}" href="{{ url_for('my_fuel_records') }}">
                     👤 My Fuel Records
+                </a>
+                <a class="nav-link {% if request.endpoint in ['fuel_reports', 'fuel_reports_print'] %}active{% endif %}" href="{{ url_for('fuel_reports') }}">
+                    📊 Fuel Reports
+                </a>
+                <a class="nav-link {% if request.endpoint == 'fuel_exceptions_report' %}active{% endif %}" href="{{ url_for('fuel_exceptions_report') }}">
+                    ⚠️ Fuel Exceptions
                 </a>
             </div>
             

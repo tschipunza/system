@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Data Import{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">📥 Data Import</h2>
+    
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> <strong>Import Instructions:</strong>
+        <ul class="mb-0 mt-2">
+            <li>Download the appropriate Excel template below</li>
+            <li>Fill in your data following the template format</li>
+            <li>Required fields are marked with * in the template</li>
+            <li><strong>Use dropdown lists</strong> for validated fields (vehicles, employees, status, fuel type, etc.)</li>
+            <li>Upload the completed file to import the data</li>
+        </ul>
+    </div>
+
+    <!-- Vehicles Import -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-car"></i> Import Vehicles</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Template Fields:</h6>
+                    <ul>
+                        <li><strong>Vehicle Number*</strong> - Unique identifier</li>
+                        <li><strong>Make*</strong> - Manufacturer (e.g., Toyota, Ford)</li>
+                        <li><strong>Model*</strong> - Model name</li>
+                        <li><strong>Year*</strong> - Manufacturing year</li>
+                        <li>Color, Vehicle Type (e.g., Sedan, SUV, Truck)</li>
+                        <li><strong>Status</strong> - Dropdown: available, in_use, maintenance, out_of_service</li>
+                        <li>Mileage, Last Service Date</li>
+                        <li>Expected Fuel Consumption (km/L) - Leave blank to use default (18 km/L)</li>
+                        <li>Notes</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('download_import_template', data_type='vehicles') }}" class="btn btn-success btn-lg">
+                            <i class="fas fa-download"></i> Download Vehicles Template
+                        </a>
+                        <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#uploadModal" 
+                                onclick="setUploadType('vehicles')">
+                            <i class="fas fa-upload"></i> Upload Vehicles Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employees Import -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-users"></i> Import Employees</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Template Fields:</h6>
+                    <ul>
+                        <li><strong>Username*</strong> - Unique login username</li>
+                        <li><strong>Email*</strong> - Email address</li>
+                        <li><strong>Password*</strong> - Initial password (will be hashed)</li>
+                        <li><strong>Employee ID*</strong> - Unique employee identifier</li>
+                        <li>Phone, Department, Position</li>
+                        <li><strong>Status</strong> - Dropdown: active, inactive</li>
+                    </ul>
+                    <div class="alert alert-warning mb-0">
+                        <small><i class="fas fa-exclamation-triangle"></i> Passwords will be securely hashed during import</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('download_import_template', data_type='employees') }}" class="btn btn-success btn-lg">
+                            <i class="fas fa-download"></i> Download Employees Template
+                        </a>
+                        <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#uploadModal" 
+                                onclick="setUploadType('employees')">
+                            <i class="fas fa-upload"></i> Upload Employees Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fuel Records Import -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="fas fa-gas-pump"></i> Import Fuel Records</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Template Fields:</h6>
+                    <ul>
+                        <li><strong>Vehicle Number*</strong> - <span class="badge bg-success">Dropdown List</span> from system vehicles</li>
+                        <li><strong>Employee Username*</strong> - <span class="badge bg-success">Dropdown List</span> from system employees</li>
+                        <li><strong>Fuel Date*</strong> - Format: YYYY-MM-DD HH:MM</li>
+                        <li><strong>Fuel Amount (Liters)*</strong></li>
+                        <li><strong>Fuel Cost*</strong></li>
+                        <li>Odometer Reading</li>
+                        <li><strong>Fuel Type</strong> - Dropdown: Petrol, Diesel, Electric, Hybrid</li>
+                        <li>Station Name, Payment Method</li>
+                    </ul>
+                    <div class="alert alert-warning mb-0">
+                        <small><i class="fas fa-exclamation-triangle"></i> Vehicles and Employees must already exist before importing fuel records. Download a fresh template to get the latest dropdown lists.</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('download_import_template', data_type='fuel_records') }}" class="btn btn-success btn-lg">
+                            <i class="fas fa-download"></i> Download Fuel Records Template
+                        </a>
+                        <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#uploadModal" 
+                                onclick="setUploadType('fuel_records')">
+                            <i class="fas fa-upload"></i> Upload Fuel Records Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Tips -->
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Import Tips</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>✅ Best Practices:</h6>
+                    <ul>
+                        <li>Always download the latest template before importing</li>
+                        <li>Fill in all required fields marked with *</li>
+                        <li><strong>Use dropdown lists</strong> - don't type vehicle numbers or usernames manually</li>
+                        <li>Use the exact format shown in the example row</li>
+                        <li>Test with a small batch first</li>
+                        <li>Keep a backup of your original data</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>⚠️ Common Errors to Avoid:</h6>
+                    <ul>
+                        <li>Typing values instead of using dropdowns</li>
+                        <li>Duplicate vehicle numbers or usernames</li>
+                        <li>Incorrect date formats</li>
+                        <li>Missing required fields</li>
+                        <li>Special characters in IDs</li>
+                        <li>Outdated templates (re-download for latest data)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('upload_import_data') }}" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Import File</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="data_type" id="data_type">
+                    
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select Excel File (.xlsx)</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="fas fa-info-circle"></i> 
+                            Make sure you're uploading the correct template for <strong id="upload_type_label"></strong>
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Upload and Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function setUploadType(type) {
+    document.getElementById('data_type').value = type;
+    
+    let label = '';
+    if (type === 'vehicles') label = 'Vehicles';
+    else if (type === 'employees') label = 'Employees';
+    else if (type === 'fuel_records') label = 'Fuel Records';
+    
+    document.getElementById('upload_type_label').textContent = label;
+}
+</script>
+{% endblock %}

@@ -358,6 +358,7 @@ def add_vehicle():
         status = request.form.get('status')
         mileage = request.form.get('mileage')
         last_service_date = request.form.get('last_service_date')
+        expected_fuel_consumption = request.form.get('expected_fuel_consumption')
         notes = request.form.get('notes')
         
         if not all([vehicle_number, make, model, year]):
@@ -377,10 +378,11 @@ def add_vehicle():
             # Insert new vehicle
             cursor.execute("""
                 INSERT INTO vehicles (vehicle_number, make, model, year, color, vehicle_type, 
-                                    status, mileage, last_service_date, notes, added_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    status, mileage, last_service_date, expected_fuel_consumption, notes, added_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (vehicle_number, make, model, year, color, vehicle_type, status, 
-                  mileage, last_service_date if last_service_date else None, notes, session['employee_id']))
+                  mileage, last_service_date if last_service_date else None, 
+                  expected_fuel_consumption if expected_fuel_consumption else None, notes, session['employee_id']))
             conn.commit()
             flash('Vehicle added successfully!', 'success')
             return redirect(url_for('vehicles_list'))
@@ -414,6 +416,7 @@ def edit_vehicle(vehicle_id):
         status = request.form.get('status')
         mileage = request.form.get('mileage')
         last_service_date = request.form.get('last_service_date')
+        expected_fuel_consumption = request.form.get('expected_fuel_consumption')
         notes = request.form.get('notes')
         
         if not all([vehicle_number, make, model, year]):
@@ -432,10 +435,12 @@ def edit_vehicle(vehicle_id):
             cursor.execute("""
                 UPDATE vehicles 
                 SET vehicle_number = %s, make = %s, model = %s, year = %s, color = %s, 
-                    vehicle_type = %s, status = %s, mileage = %s, last_service_date = %s, notes = %s
+                    vehicle_type = %s, status = %s, mileage = %s, last_service_date = %s, 
+                    expected_fuel_consumption = %s, notes = %s
                 WHERE id = %s
             """, (vehicle_number, make, model, year, color, vehicle_type, status, 
-                  mileage, last_service_date if last_service_date else None, notes, vehicle_id))
+                  mileage, last_service_date if last_service_date else None, 
+                  expected_fuel_consumption if expected_fuel_consumption else None, notes, vehicle_id))
             conn.commit()
             flash('Vehicle updated successfully!', 'success')
             return redirect(url_for('vehicles_list'))
@@ -1048,6 +1053,655 @@ def delete_fuel_record(record_id):
         cursor.close()
         conn.close()
 
+@app.route('/fuel-reports')
+def fuel_reports():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    from datetime import datetime, timedelta
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get filter parameters
+        report_type = request.args.get('report_type', 'monthly')  # weekly, monthly, quarterly, custom
+        vehicle_filter = request.args.get('vehicle_filter', '')
+        driver_filter = request.args.get('driver_filter', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        
+        # Calculate date ranges based on report type
+        today = datetime.now().date()
+        
+        if report_type == 'weekly':
+            start_date = (today - timedelta(days=today.weekday())).strftime('%Y-%m-%d')
+            end_date = (today + timedelta(days=(6 - today.weekday()))).strftime('%Y-%m-%d')
+        elif report_type == 'monthly':
+            start_date = today.replace(day=1).strftime('%Y-%m-%d')
+            # Get last day of month
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = today.replace(month=today.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif report_type == 'quarterly':
+            quarter = (today.month - 1) // 3
+            start_month = quarter * 3 + 1
+            start_date = today.replace(month=start_month, day=1).strftime('%Y-%m-%d')
+            # Get last day of quarter
+            end_month = start_month + 2
+            if end_month == 12:
+                end_date = today.replace(month=12, day=31).strftime('%Y-%m-%d')
+            else:
+                next_month = today.replace(month=end_month + 1, day=1)
+                end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        # For custom, use provided dates or default to current month
+        elif not start_date or not end_date:
+            start_date = today.replace(day=1).strftime('%Y-%m-%d')
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = today.replace(month=today.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # Build query
+        query = """
+            SELECT fr.*, 
+                   v.vehicle_number, v.make, v.model, v.id as vehicle_id,
+                   e.username as driver_name, e.id as driver_id
+            FROM fuel_records fr
+            JOIN vehicles v ON fr.vehicle_id = v.id
+            JOIN employees e ON fr.employee_id = e.id
+            WHERE fr.fuel_date BETWEEN %s AND %s
+        """
+        params = [start_date, end_date]
+        
+        if vehicle_filter:
+            query += " AND fr.vehicle_id = %s"
+            params.append(vehicle_filter)
+        
+        if driver_filter:
+            query += " AND fr.employee_id = %s"
+            params.append(driver_filter)
+        
+        query += " ORDER BY v.vehicle_number, fr.fuel_date ASC"
+        
+        cursor.execute(query, params)
+        fuel_records = cursor.fetchall()
+        
+        # Calculate distance and consumption for each record
+        # Group by vehicle to track previous odometer
+        vehicle_previous = {}
+        for record in fuel_records:
+            vid = record['vehicle_id']
+            record['distance_since_last'] = None
+            record['consumption'] = None
+            
+            if record['odometer_reading']:
+                if vid in vehicle_previous and vehicle_previous[vid]['odometer']:
+                    distance = record['odometer_reading'] - vehicle_previous[vid]['odometer']
+                    if distance > 0:
+                        record['distance_since_last'] = distance
+                        # Calculate consumption in L/100km
+                        record['consumption'] = (float(record['fuel_amount']) / distance) * 100
+                
+                vehicle_previous[vid] = {
+                    'odometer': record['odometer_reading'],
+                    'litres': record['fuel_amount']
+                }
+        
+        # Reverse for display (newest first)
+        fuel_records.reverse()
+        
+        # Calculate summary statistics
+        summary = {
+            'total_records': len(fuel_records),
+            'total_litres': sum(float(record['fuel_amount']) for record in fuel_records),
+            'total_cost': sum(float(record['fuel_cost']) for record in fuel_records),
+            'total_odometer': 0,
+            'avg_cost_per_litre': 0,
+            'avg_litres_per_fill': 0
+        }
+        
+        if summary['total_records'] > 0:
+            summary['avg_litres_per_fill'] = summary['total_litres'] / summary['total_records']
+            if summary['total_litres'] > 0:
+                summary['avg_cost_per_litre'] = summary['total_cost'] / summary['total_litres']
+        
+        # Group by vehicle
+        vehicles_summary = {}
+        for record in fuel_records:
+            vid = record['vehicle_id']
+            if vid not in vehicles_summary:
+                vehicles_summary[vid] = {
+                    'vehicle_number': record['vehicle_number'],
+                    'make': record['make'],
+                    'model': record['model'],
+                    'total_litres': 0,
+                    'total_cost': 0,
+                    'fill_count': 0,
+                    'total_km': 0,
+                    'avg_consumption': 0,
+                    'records': []
+                }
+            vehicles_summary[vid]['total_litres'] += float(record['fuel_amount'])
+            vehicles_summary[vid]['total_cost'] += float(record['fuel_cost'])
+            vehicles_summary[vid]['fill_count'] += 1
+            vehicles_summary[vid]['records'].append(record)
+        
+        # Calculate km traveled and fuel consumption per vehicle
+        for vid, vdata in vehicles_summary.items():
+            # Sort records by date to calculate distance
+            sorted_records = sorted(vdata['records'], key=lambda x: x['fuel_date'])
+            if len(sorted_records) >= 2:
+                # Calculate total km from first to last odometer reading
+                first_odometer = sorted_records[0]['odometer_reading'] if sorted_records[0]['odometer_reading'] else 0
+                last_odometer = sorted_records[-1]['odometer_reading'] if sorted_records[-1]['odometer_reading'] else 0
+                vdata['total_km'] = last_odometer - first_odometer
+                
+                # Calculate average consumption (litres per 100km)
+                if vdata['total_km'] > 0:
+                    vdata['avg_consumption'] = (vdata['total_litres'] / vdata['total_km']) * 100
+        
+        # Group by driver
+        drivers_summary = {}
+        for record in fuel_records:
+            did = record['driver_id']
+            if did not in drivers_summary:
+                drivers_summary[did] = {
+                    'driver_name': record['driver_name'],
+                    'total_litres': 0,
+                    'total_cost': 0,
+                    'fill_count': 0,
+                    'total_km': 0,
+                    'avg_consumption': 0,
+                    'records': []
+                }
+            drivers_summary[did]['total_litres'] += float(record['fuel_amount'])
+            drivers_summary[did]['total_cost'] += float(record['fuel_cost'])
+            drivers_summary[did]['fill_count'] += 1
+            drivers_summary[did]['records'].append(record)
+        
+        # Calculate km traveled and fuel consumption per driver
+        for did, ddata in drivers_summary.items():
+            # Sort records by date
+            sorted_records = sorted(ddata['records'], key=lambda x: x['fuel_date'])
+            if len(sorted_records) >= 2:
+                first_odometer = sorted_records[0]['odometer_reading'] if sorted_records[0]['odometer_reading'] else 0
+                last_odometer = sorted_records[-1]['odometer_reading'] if sorted_records[-1]['odometer_reading'] else 0
+                ddata['total_km'] = last_odometer - first_odometer
+                
+                if ddata['total_km'] > 0:
+                    ddata['avg_consumption'] = (ddata['total_litres'] / ddata['total_km']) * 100
+        
+        # Get all vehicles and drivers for filters
+        cursor.execute("SELECT id, vehicle_number, make, model FROM vehicles ORDER BY vehicle_number")
+        vehicles = cursor.fetchall()
+        
+        cursor.execute("SELECT id, username FROM employees ORDER BY username")
+        employees = cursor.fetchall()
+        
+        return render_template('fuel_reports.html',
+                             fuel_records=fuel_records,
+                             summary=summary,
+                             vehicles_summary=vehicles_summary,
+                             drivers_summary=drivers_summary,
+                             vehicles=vehicles,
+                             employees=employees,
+                             report_type=report_type,
+                             vehicle_filter=vehicle_filter,
+                             driver_filter=driver_filter,
+                             start_date=start_date,
+                             end_date=end_date)
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/fuel-reports/print')
+def fuel_reports_print():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    from datetime import datetime, timedelta
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get filter parameters
+        report_type = request.args.get('report_type', 'monthly')
+        vehicle_filter = request.args.get('vehicle_filter', '')
+        driver_filter = request.args.get('driver_filter', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        
+        # Calculate date ranges based on report type
+        today = datetime.now().date()
+        
+        if report_type == 'weekly':
+            start_date = (today - timedelta(days=today.weekday())).strftime('%Y-%m-%d')
+            end_date = (today + timedelta(days=(6 - today.weekday()))).strftime('%Y-%m-%d')
+        elif report_type == 'monthly':
+            start_date = today.replace(day=1).strftime('%Y-%m-%d')
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = today.replace(month=today.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif report_type == 'quarterly':
+            quarter = (today.month - 1) // 3
+            start_month = quarter * 3 + 1
+            start_date = today.replace(month=start_month, day=1).strftime('%Y-%m-%d')
+            end_month = start_month + 2
+            if end_month == 12:
+                end_date = today.replace(month=12, day=31).strftime('%Y-%m-%d')
+            else:
+                next_month = today.replace(month=end_month + 1, day=1)
+                end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif not start_date or not end_date:
+            start_date = today.replace(day=1).strftime('%Y-%m-%d')
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = today.replace(month=today.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # Build query
+        query = """
+            SELECT fr.*, 
+                   v.vehicle_number, v.make, v.model, v.id as vehicle_id,
+                   e.username as driver_name, e.id as driver_id
+            FROM fuel_records fr
+            JOIN vehicles v ON fr.vehicle_id = v.id
+            JOIN employees e ON fr.employee_id = e.id
+            WHERE fr.fuel_date BETWEEN %s AND %s
+        """
+        params = [start_date, end_date]
+        
+        if vehicle_filter:
+            query += " AND fr.vehicle_id = %s"
+            params.append(vehicle_filter)
+        
+        if driver_filter:
+            query += " AND fr.employee_id = %s"
+            params.append(driver_filter)
+        
+        query += " ORDER BY fr.fuel_date DESC, v.vehicle_number"
+        
+        cursor.execute(query, params)
+        fuel_records = cursor.fetchall()
+        
+        # Calculate summary statistics
+        summary = {
+            'total_records': len(fuel_records),
+            'total_litres': sum(float(record['fuel_amount']) for record in fuel_records),
+            'total_cost': sum(float(record['fuel_cost']) for record in fuel_records),
+            'avg_cost_per_litre': 0,
+            'avg_litres_per_fill': 0
+        }
+        
+        if summary['total_records'] > 0:
+            summary['avg_litres_per_fill'] = summary['total_litres'] / summary['total_records']
+            if summary['total_litres'] > 0:
+                summary['avg_cost_per_litre'] = summary['total_cost'] / summary['total_litres']
+        
+        # Group by vehicle
+        vehicles_summary = {}
+        for record in fuel_records:
+            vid = record['vehicle_id']
+            if vid not in vehicles_summary:
+                vehicles_summary[vid] = {
+                    'vehicle_number': record['vehicle_number'],
+                    'make': record['make'],
+                    'model': record['model'],
+                    'total_litres': 0,
+                    'total_cost': 0,
+                    'fill_count': 0,
+                    'total_km': 0,
+                    'avg_consumption': 0,
+                    'records': []
+                }
+            vehicles_summary[vid]['total_litres'] += float(record['fuel_amount'])
+            vehicles_summary[vid]['total_cost'] += float(record['fuel_cost'])
+            vehicles_summary[vid]['fill_count'] += 1
+            vehicles_summary[vid]['records'].append(record)
+        
+        # Calculate km traveled and fuel consumption per vehicle
+        for vid, vdata in vehicles_summary.items():
+            sorted_records = sorted(vdata['records'], key=lambda x: x['fuel_date'])
+            if len(sorted_records) >= 2:
+                first_odometer = sorted_records[0]['odometer_reading'] if sorted_records[0]['odometer_reading'] else 0
+                last_odometer = sorted_records[-1]['odometer_reading'] if sorted_records[-1]['odometer_reading'] else 0
+                vdata['total_km'] = last_odometer - first_odometer
+                
+                if vdata['total_km'] > 0:
+                    vdata['avg_consumption'] = (vdata['total_litres'] / vdata['total_km']) * 100
+        
+        # Group by driver
+        drivers_summary = {}
+        for record in fuel_records:
+            did = record['driver_id']
+            if did not in drivers_summary:
+                drivers_summary[did] = {
+                    'driver_name': record['driver_name'],
+                    'total_litres': 0,
+                    'total_cost': 0,
+                    'fill_count': 0,
+                    'total_km': 0,
+                    'avg_consumption': 0,
+                    'records': []
+                }
+            drivers_summary[did]['total_litres'] += float(record['fuel_amount'])
+            drivers_summary[did]['total_cost'] += float(record['fuel_cost'])
+            drivers_summary[did]['fill_count'] += 1
+            drivers_summary[did]['records'].append(record)
+        
+        # Calculate km traveled and fuel consumption per driver
+        for did, ddata in drivers_summary.items():
+            sorted_records = sorted(ddata['records'], key=lambda x: x['fuel_date'])
+            if len(sorted_records) >= 2:
+                first_odometer = sorted_records[0]['odometer_reading'] if sorted_records[0]['odometer_reading'] else 0
+                last_odometer = sorted_records[-1]['odometer_reading'] if sorted_records[-1]['odometer_reading'] else 0
+                ddata['total_km'] = last_odometer - first_odometer
+                
+                if ddata['total_km'] > 0:
+                    ddata['avg_consumption'] = (ddata['total_litres'] / ddata['total_km']) * 100
+        
+        # Get print settings
+        cursor.execute("SELECT * FROM print_settings LIMIT 1")
+        print_config = cursor.fetchone()
+        
+        return render_template('fuel_reports_print.html',
+                             fuel_records=fuel_records,
+                             summary=summary,
+                             vehicles_summary=vehicles_summary,
+                             drivers_summary=drivers_summary,
+                             report_type=report_type,
+                             start_date=start_date,
+                             end_date=end_date,
+                             print_config=print_config)
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/fuel-reports/export')
+def fuel_reports_export():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    from datetime import datetime, timedelta
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from flask import send_file
+    import io
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Get filter parameters
+        report_type = request.args.get('report_type', 'monthly')
+        vehicle_filter = request.args.get('vehicle_filter', '')
+        driver_filter = request.args.get('driver_filter', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        
+        # Calculate date ranges based on report type
+        today = datetime.now().date()
+        
+        if report_type == 'weekly':
+            start_date = (today - timedelta(days=today.weekday())).strftime('%Y-%m-%d')
+            end_date = (today + timedelta(days=(6 - today.weekday()))).strftime('%Y-%m-%d')
+        elif report_type == 'monthly':
+            start_date = today.replace(day=1).strftime('%Y-%m-%d')
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = today.replace(month=today.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif report_type == 'quarterly':
+            quarter = (today.month - 1) // 3
+            start_month = quarter * 3 + 1
+            start_date = today.replace(month=start_month, day=1).strftime('%Y-%m-%d')
+            end_month = start_month + 2
+            if end_month == 12:
+                end_date = today.replace(month=12, day=31).strftime('%Y-%m-%d')
+            else:
+                next_month = today.replace(month=end_month + 1, day=1)
+                end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif not start_date or not end_date:
+            start_date = today.replace(day=1).strftime('%Y-%m-%d')
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = today.replace(month=today.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # Build query
+        query = """
+            SELECT fr.*, 
+                   v.vehicle_number, v.make, v.model, v.id as vehicle_id,
+                   e.username as driver_name, e.id as driver_id
+            FROM fuel_records fr
+            JOIN vehicles v ON fr.vehicle_id = v.id
+            JOIN employees e ON fr.employee_id = e.id
+            WHERE fr.fuel_date BETWEEN %s AND %s
+        """
+        params = [start_date, end_date]
+        
+        if vehicle_filter:
+            query += " AND fr.vehicle_id = %s"
+            params.append(vehicle_filter)
+        
+        if driver_filter:
+            query += " AND fr.employee_id = %s"
+            params.append(driver_filter)
+        
+        query += " ORDER BY v.vehicle_number, fr.fuel_date ASC"
+        
+        cursor.execute(query, params)
+        fuel_records = cursor.fetchall()
+        
+        # Calculate distance and consumption for each record
+        vehicle_previous = {}
+        for record in fuel_records:
+            vid = record['vehicle_id']
+            record['distance_since_last'] = None
+            record['consumption'] = None
+            
+            if record['odometer_reading']:
+                if vid in vehicle_previous and vehicle_previous[vid]['odometer']:
+                    distance = record['odometer_reading'] - vehicle_previous[vid]['odometer']
+                    if distance > 0:
+                        record['distance_since_last'] = distance
+                        record['consumption'] = (float(record['fuel_amount']) / distance) * 100
+                
+                vehicle_previous[vid] = {
+                    'odometer': record['odometer_reading'],
+                    'litres': record['fuel_amount']
+                }
+        
+        # Reverse for display
+        fuel_records.reverse()
+        
+        # Calculate summary statistics
+        summary = {
+            'total_records': len(fuel_records),
+            'total_litres': sum(float(record['fuel_amount']) for record in fuel_records),
+            'total_cost': sum(float(record['fuel_cost']) for record in fuel_records),
+            'avg_cost_per_litre': 0,
+            'avg_litres_per_fill': 0
+        }
+        
+        if summary['total_records'] > 0:
+            summary['avg_litres_per_fill'] = summary['total_litres'] / summary['total_records']
+            if summary['total_litres'] > 0:
+                summary['avg_cost_per_litre'] = summary['total_cost'] / summary['total_litres']
+        
+        # Group by vehicle
+        vehicles_summary = {}
+        for record in fuel_records:
+            vid = record['vehicle_id']
+            if vid not in vehicles_summary:
+                vehicles_summary[vid] = {
+                    'vehicle_number': record['vehicle_number'],
+                    'make': record['make'],
+                    'model': record['model'],
+                    'total_litres': 0,
+                    'total_cost': 0,
+                    'fill_count': 0,
+                    'total_km': 0,
+                    'avg_consumption': 0,
+                    'records': []
+                }
+            vehicles_summary[vid]['total_litres'] += float(record['fuel_amount'])
+            vehicles_summary[vid]['total_cost'] += float(record['fuel_cost'])
+            vehicles_summary[vid]['fill_count'] += 1
+            vehicles_summary[vid]['records'].append(record)
+        
+        # Calculate km traveled per vehicle
+        for vid, vdata in vehicles_summary.items():
+            sorted_records = sorted(vdata['records'], key=lambda x: x['fuel_date'])
+            if len(sorted_records) >= 2:
+                first_odometer = sorted_records[0]['odometer_reading'] if sorted_records[0]['odometer_reading'] else 0
+                last_odometer = sorted_records[-1]['odometer_reading'] if sorted_records[-1]['odometer_reading'] else 0
+                vdata['total_km'] = last_odometer - first_odometer
+                
+                if vdata['total_km'] > 0:
+                    vdata['avg_consumption'] = (vdata['total_litres'] / vdata['total_km']) * 100
+        
+        # Create Excel workbook
+        wb = Workbook()
+        
+        # Define styles
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        title_font = Font(bold=True, size=14)
+        bold_font = Font(bold=True)
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Summary Sheet
+        ws_summary = wb.active
+        ws_summary.title = "Summary"
+        
+        # Title
+        ws_summary['A1'] = "Fuel Consumption Report"
+        ws_summary['A1'].font = title_font
+        ws_summary['A2'] = f"Period: {start_date} to {end_date}"
+        ws_summary['A3'] = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        
+        # Summary data
+        row = 5
+        ws_summary[f'A{row}'] = "Total Fuel Records:"
+        ws_summary[f'B{row}'] = summary['total_records']
+        ws_summary[f'A{row}'].font = bold_font
+        
+        row += 1
+        ws_summary[f'A{row}'] = "Total Litres Consumed:"
+        ws_summary[f'B{row}'] = round(summary['total_litres'], 2)
+        ws_summary[f'A{row}'].font = bold_font
+        
+        row += 1
+        ws_summary[f'A{row}'] = "Total Cost:"
+        ws_summary[f'B{row}'] = round(summary['total_cost'], 2)
+        ws_summary[f'A{row}'].font = bold_font
+        
+        row += 1
+        ws_summary[f'A{row}'] = "Average Cost per Litre:"
+        ws_summary[f'B{row}'] = round(summary['avg_cost_per_litre'], 2)
+        ws_summary[f'A{row}'].font = bold_font
+        
+        row += 1
+        ws_summary[f'A{row}'] = "Average Litres per Fill:"
+        ws_summary[f'B{row}'] = round(summary['avg_litres_per_fill'], 2)
+        ws_summary[f'A{row}'].font = bold_font
+        
+        # By Vehicle Sheet
+        ws_vehicle = wb.create_sheet("By Vehicle")
+        headers = ["Vehicle", "Make/Model", "Fill Count", "Total Litres", "Total Cost", "Distance (km)", "L/100km"]
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws_vehicle.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = border
+        
+        row = 2
+        for vid, vdata in vehicles_summary.items():
+            ws_vehicle.cell(row=row, column=1, value=vdata['vehicle_number'])
+            ws_vehicle.cell(row=row, column=2, value=f"{vdata['make']} {vdata['model']}")
+            ws_vehicle.cell(row=row, column=3, value=vdata['fill_count'])
+            ws_vehicle.cell(row=row, column=4, value=round(vdata['total_litres'], 2))
+            ws_vehicle.cell(row=row, column=5, value=round(vdata['total_cost'], 2))
+            ws_vehicle.cell(row=row, column=6, value=vdata['total_km'] if vdata['total_km'] > 0 else 'N/A')
+            ws_vehicle.cell(row=row, column=7, value=round(vdata['avg_consumption'], 2) if vdata['avg_consumption'] > 0 else 'N/A')
+            row += 1
+        
+        # Detailed Records Sheet
+        ws_details = wb.create_sheet("Detailed Records")
+        headers = ["Date", "Vehicle", "Driver", "Station", "Odometer", "Distance", "Litres", "L/100km", "Price/L", "Total Cost"]
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws_details.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = border
+        
+        row = 2
+        for record in fuel_records:
+            ws_details.cell(row=row, column=1, value=record['fuel_date'].strftime('%Y-%m-%d'))
+            ws_details.cell(row=row, column=2, value=record['vehicle_number'])
+            ws_details.cell(row=row, column=3, value=record['driver_name'])
+            ws_details.cell(row=row, column=4, value=record['station_name'] if record['station_name'] else 'N/A')
+            ws_details.cell(row=row, column=5, value=record['odometer_reading'] if record['odometer_reading'] else 'N/A')
+            ws_details.cell(row=row, column=6, value=record['distance_since_last'] if record['distance_since_last'] else '-')
+            ws_details.cell(row=row, column=7, value=round(float(record['fuel_amount']), 2))
+            ws_details.cell(row=row, column=8, value=round(record['consumption'], 2) if record['consumption'] else '-')
+            ws_details.cell(row=row, column=9, value=round(float(record['fuel_cost']) / float(record['fuel_amount']), 2))
+            ws_details.cell(row=row, column=10, value=round(float(record['fuel_cost']), 2))
+            row += 1
+        
+        # Auto-adjust column widths
+        for ws in [ws_summary, ws_vehicle, ws_details]:
+            for column in ws.columns:
+                max_length = 0
+                column_letter = get_column_letter(column[0].column)
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to BytesIO
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Generate filename
+        filename = f"Fuel_Report_{start_date}_to_{end_date}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route('/my-fuel-records')
 def my_fuel_records():
     if 'employee_id' not in session:
@@ -1057,16 +1711,115 @@ def my_fuel_records():
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("""
+        # Get filter parameter
+        vehicle_filter = request.args.get('vehicle_filter', '')
+        
+        # Build query
+        query = """
             SELECT fr.*, 
-                   v.vehicle_number, v.make, v.model
+                   v.vehicle_number, v.make, v.model, v.id as vehicle_id
             FROM fuel_records fr
             JOIN vehicles v ON fr.vehicle_id = v.id
             WHERE fr.employee_id = %s
-            ORDER BY fr.fuel_date DESC
-        """, (session['employee_id'],))
+        """
+        params = [session['employee_id']]
+        
+        if vehicle_filter:
+            query += " AND fr.vehicle_id = %s"
+            params.append(vehicle_filter)
+        
+        query += " ORDER BY fr.fuel_date DESC"
+        
+        cursor.execute(query, params)
         fuel_records = cursor.fetchall()
-        return render_template('my_fuel_records.html', fuel_records=fuel_records)
+        
+        # Calculate summary statistics
+        summary = {
+            'total_records': len(fuel_records),
+            'total_litres': sum(float(record['fuel_amount']) for record in fuel_records) if fuel_records else 0,
+            'total_cost': sum(float(record['fuel_cost']) for record in fuel_records) if fuel_records else 0,
+            'avg_cost_per_litre': 0,
+            'avg_litres_per_fill': 0,
+            'min_cost_per_litre': 0,
+            'max_cost_per_litre': 0,
+            'min_litres': 0,
+            'max_litres': 0,
+            'total_distance': 0,
+            'avg_consumption': 0,
+            'cost_per_km': 0,
+            'km_per_litre': 0,
+            'records_with_odometer': 0,
+            'unique_stations': 0,
+            'most_used_station': 'N/A',
+            'fuel_type_breakdown': {}
+        }
+        
+        if summary['total_records'] > 0:
+            # Basic averages
+            summary['avg_litres_per_fill'] = summary['total_litres'] / summary['total_records']
+            if summary['total_litres'] > 0:
+                summary['avg_cost_per_litre'] = summary['total_cost'] / summary['total_litres']
+            
+            # Min/Max litres and cost per litre
+            litres = [float(record['fuel_amount']) for record in fuel_records]
+            costs_per_litre = [float(record['fuel_cost']) / float(record['fuel_amount']) for record in fuel_records]
+            summary['min_litres'] = min(litres)
+            summary['max_litres'] = max(litres)
+            summary['min_cost_per_litre'] = min(costs_per_litre)
+            summary['max_cost_per_litre'] = max(costs_per_litre)
+            
+            # Odometer-based calculations
+            records_with_odometer = [r for r in fuel_records if r['odometer_reading']]
+            summary['records_with_odometer'] = len(records_with_odometer)
+            
+            if len(records_with_odometer) >= 2:
+                # Sort by odometer reading
+                sorted_records = sorted(records_with_odometer, key=lambda x: float(x['odometer_reading']))
+                first_odometer = float(sorted_records[0]['odometer_reading'])
+                last_odometer = float(sorted_records[-1]['odometer_reading'])
+                summary['total_distance'] = last_odometer - first_odometer
+                
+                if summary['total_distance'] > 0:
+                    fuel_for_distance = sum(float(r['fuel_amount']) for r in records_with_odometer)
+                    cost_for_distance = sum(float(r['fuel_cost']) for r in records_with_odometer)
+                    summary['avg_consumption'] = (fuel_for_distance / summary['total_distance']) * 100  # L/100km
+                    summary['km_per_litre'] = summary['total_distance'] / fuel_for_distance
+                    summary['cost_per_km'] = cost_for_distance / summary['total_distance']
+            
+            # Station statistics
+            stations = [r['station_name'] for r in fuel_records if r.get('station_name')]
+            if stations:
+                summary['unique_stations'] = len(set(stations))
+                from collections import Counter
+                station_counts = Counter(stations)
+                summary['most_used_station'] = station_counts.most_common(1)[0][0]
+            
+            # Fuel type breakdown
+            fuel_types = {}
+            for record in fuel_records:
+                fuel_type = record.get('fuel_type', 'Unknown')
+                if fuel_type not in fuel_types:
+                    fuel_types[fuel_type] = {'count': 0, 'litres': 0, 'cost': 0}
+                fuel_types[fuel_type]['count'] += 1
+                fuel_types[fuel_type]['litres'] += float(record['fuel_amount'])
+                fuel_types[fuel_type]['cost'] += float(record['fuel_cost'])
+            summary['fuel_type_breakdown'] = fuel_types
+        
+        # Get list of vehicles this employee has fueled
+        cursor.execute("""
+            SELECT DISTINCT v.id, v.vehicle_number, v.make, v.model
+            FROM fuel_records fr
+            JOIN vehicles v ON fr.vehicle_id = v.id
+            WHERE fr.employee_id = %s
+            ORDER BY v.vehicle_number
+        """, (session['employee_id'],))
+        vehicles = cursor.fetchall()
+        
+        return render_template('my_fuel_records.html', 
+                             fuel_records=fuel_records,
+                             summary=summary,
+                             vehicles=vehicles,
+                             vehicle_filter=vehicle_filter)
     finally:
         cursor.close()
         conn.close()
@@ -1144,7 +1897,7 @@ def add_service():
         service_type = request.form.get('service_type')
         service_date = request.form.get('service_date')
         service_provider = request.form.get('service_provider')
-        cost = request.form.get('cost')
+        cost = request.form.get('cost') or None
         odometer_reading = request.form.get('odometer_reading') or None
         next_service_date = request.form.get('next_service_date') or None
         next_service_mileage = request.form.get('next_service_mileage') or None
@@ -1929,7 +2682,11 @@ def print_job_card(job_card_id):
         """, (job_card_id,))
         items = cursor.fetchall()
         
-        return render_template('print_job_card.html', job_card=job_card, items=items)
+        # Get print settings
+        cursor.execute("SELECT * FROM print_settings LIMIT 1")
+        print_config = cursor.fetchone()
+        
+        return render_template('print_job_card.html', job_card=job_card, items=items, print_config=print_config)
     finally:
         cursor.close()
         conn.close()
@@ -1968,14 +2725,16 @@ def service_notifications():
                 v.make,
                 v.model,
                 v.year,
-                fr.latest_mileage,
+                v.mileage as vehicle_mileage,
+                COALESCE(fr.latest_mileage, v.mileage) as latest_mileage,
                 sm.next_service_mileage,
                 sm.next_service_date,
                 sm.service_type as last_service_type,
                 sm.service_date as last_service_date,
+                v.last_service_date as vehicle_last_service,
                 CASE 
-                    WHEN sm.next_service_mileage IS NOT NULL AND fr.latest_mileage IS NOT NULL 
-                    THEN sm.next_service_mileage - fr.latest_mileage
+                    WHEN sm.next_service_mileage IS NOT NULL AND COALESCE(fr.latest_mileage, v.mileage) IS NOT NULL 
+                    THEN sm.next_service_mileage - COALESCE(fr.latest_mileage, v.mileage)
                     ELSE NULL
                 END as km_until_service,
                 CASE
@@ -1997,14 +2756,14 @@ def service_notifications():
                 INNER JOIN (
                     SELECT vehicle_id, MAX(service_date) as max_date
                     FROM service_maintenance
+                    WHERE next_service_mileage IS NOT NULL OR next_service_date IS NOT NULL
                     GROUP BY vehicle_id
                 ) sm2 ON sm1.vehicle_id = sm2.vehicle_id AND sm1.service_date = sm2.max_date
             ) sm ON v.id = sm.vehicle_id
-            WHERE v.status = 'available' OR v.status = 'assigned'
             ORDER BY 
                 CASE 
-                    WHEN sm.next_service_mileage IS NOT NULL AND fr.latest_mileage IS NOT NULL 
-                    THEN sm.next_service_mileage - fr.latest_mileage
+                    WHEN sm.next_service_mileage IS NOT NULL AND COALESCE(fr.latest_mileage, v.mileage) IS NOT NULL 
+                    THEN sm.next_service_mileage - COALESCE(fr.latest_mileage, v.mileage)
                     ELSE 999999
                 END ASC,
                 v.vehicle_number
@@ -2019,16 +2778,22 @@ def service_notifications():
         no_data = []
         
         for vehicle in vehicles:
+            # Skip if both service indicators are None
             if vehicle['km_until_service'] is None and vehicle['days_until_service'] is None:
                 no_data.append(vehicle)
+            # Check if overdue (negative or zero remaining)
             elif (vehicle['km_until_service'] is not None and vehicle['km_until_service'] <= 0) or \
                  (vehicle['days_until_service'] is not None and vehicle['days_until_service'] <= 0):
                 overdue.append(vehicle)
-            elif (vehicle['km_until_service'] is not None and vehicle['km_until_service'] <= 1000) or \
-                 (vehicle['days_until_service'] is not None and vehicle['days_until_service'] <= 7):
+            # Check if due soon (within 1000 km or 7 days, but greater than 0)
+            elif (vehicle['km_until_service'] is not None and 0 < vehicle['km_until_service'] <= 1000) or \
+                 (vehicle['days_until_service'] is not None and 0 < vehicle['days_until_service'] <= 7):
                 due_soon.append(vehicle)
-            else:
+            # Otherwise it's upcoming
+            elif vehicle['km_until_service'] is not None or vehicle['days_until_service'] is not None:
                 upcoming.append(vehicle)
+            else:
+                no_data.append(vehicle)
         
         # Send WhatsApp notifications for overdue and due soon services
         try:
@@ -2081,6 +2846,103 @@ def service_notifications():
                              due_soon=due_soon, 
                              upcoming=upcoming,
                              no_data=no_data)
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/service-notifications/print')
+def service_notifications_print():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Same query as service_notifications
+        cursor.execute("""
+            SELECT 
+                v.id,
+                v.vehicle_number,
+                v.make,
+                v.model,
+                v.year,
+                v.mileage as vehicle_mileage,
+                COALESCE(fr.latest_mileage, v.mileage) as latest_mileage,
+                sm.next_service_mileage,
+                sm.next_service_date,
+                sm.service_type as last_service_type,
+                sm.service_date as last_service_date,
+                v.last_service_date as vehicle_last_service,
+                CASE 
+                    WHEN sm.next_service_mileage IS NOT NULL AND COALESCE(fr.latest_mileage, v.mileage) IS NOT NULL 
+                    THEN sm.next_service_mileage - COALESCE(fr.latest_mileage, v.mileage)
+                    ELSE NULL
+                END as km_until_service,
+                CASE
+                    WHEN sm.next_service_date IS NOT NULL
+                    THEN DATEDIFF(sm.next_service_date, CURDATE())
+                    ELSE NULL
+                END as days_until_service
+            FROM vehicles v
+            LEFT JOIN (
+                SELECT vehicle_id, MAX(odometer_reading) as latest_mileage
+                FROM fuel_records
+                WHERE odometer_reading IS NOT NULL
+                GROUP BY vehicle_id
+            ) fr ON v.id = fr.vehicle_id
+            LEFT JOIN (
+                SELECT sm1.vehicle_id, sm1.next_service_mileage, sm1.next_service_date, 
+                       sm1.service_type, sm1.service_date
+                FROM service_maintenance sm1
+                INNER JOIN (
+                    SELECT vehicle_id, MAX(service_date) as max_date
+                    FROM service_maintenance
+                    WHERE next_service_mileage IS NOT NULL OR next_service_date IS NOT NULL
+                    GROUP BY vehicle_id
+                ) sm2 ON sm1.vehicle_id = sm2.vehicle_id AND sm1.service_date = sm2.max_date
+            ) sm ON v.id = sm.vehicle_id
+            ORDER BY 
+                CASE 
+                    WHEN sm.next_service_mileage IS NOT NULL AND COALESCE(fr.latest_mileage, v.mileage) IS NOT NULL 
+                    THEN sm.next_service_mileage - COALESCE(fr.latest_mileage, v.mileage)
+                    ELSE 999999
+                END ASC,
+                v.vehicle_number
+        """)
+        
+        vehicles = cursor.fetchall()
+        
+        # Categorize vehicles
+        overdue = []
+        due_soon = []
+        upcoming = []
+        no_data = []
+        
+        for vehicle in vehicles:
+            if vehicle['km_until_service'] is None and vehicle['days_until_service'] is None:
+                no_data.append(vehicle)
+            elif (vehicle['km_until_service'] is not None and vehicle['km_until_service'] <= 0) or \
+                 (vehicle['days_until_service'] is not None and vehicle['days_until_service'] <= 0):
+                overdue.append(vehicle)
+            elif (vehicle['km_until_service'] is not None and 0 < vehicle['km_until_service'] <= 1000) or \
+                 (vehicle['days_until_service'] is not None and 0 < vehicle['days_until_service'] <= 7):
+                due_soon.append(vehicle)
+            elif vehicle['km_until_service'] is not None or vehicle['days_until_service'] is not None:
+                upcoming.append(vehicle)
+            else:
+                no_data.append(vehicle)
+        
+        # Get print settings
+        cursor.execute("SELECT * FROM print_settings LIMIT 1")
+        print_config = cursor.fetchone()
+        
+        return render_template('service_notifications_print.html', 
+                             overdue=overdue, 
+                             due_soon=due_soon, 
+                             upcoming=upcoming,
+                             no_data=no_data,
+                             print_config=print_config)
     finally:
         cursor.close()
         conn.close()
@@ -2291,6 +3153,154 @@ def notification_settings():
     finally:
         cursor.close()
         conn.close()
+
+@app.route('/settings/print')
+def print_settings():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM print_settings LIMIT 1")
+        print_config = cursor.fetchone()
+        return render_template('print_settings.html', print_config=print_config)
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/settings/print/update', methods=['POST'])
+def update_print_settings():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    company_name = request.form.get('company_name')
+    company_tagline = request.form.get('company_tagline')
+    company_address = request.form.get('company_address')
+    company_phone = request.form.get('company_phone')
+    company_email = request.form.get('company_email')
+    company_website = request.form.get('company_website')
+    footer_left = request.form.get('footer_left')
+    footer_center = request.form.get('footer_center')
+    footer_right = request.form.get('footer_right')
+    remove_logo = request.form.get('remove_logo')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Handle logo upload
+        logo_path = None
+        if 'logo' in request.files:
+            file = request.files['logo']
+            if file and file.filename != '':
+                if allowed_file(file.filename):
+                    from werkzeug.utils import secure_filename
+                    import uuid
+                    
+                    # Create logos directory if it doesn't exist
+                    logo_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'logos')
+                    os.makedirs(logo_dir, exist_ok=True)
+                    
+                    filename = secure_filename(file.filename)
+                    unique_filename = f"{uuid.uuid4()}_{filename}"
+                    file_path = os.path.join(logo_dir, unique_filename)
+                    file.save(file_path)
+                    logo_path = f"uploads/logos/{unique_filename}"
+        
+        # Check if settings exist
+        cursor.execute("SELECT id, logo_path FROM print_settings LIMIT 1")
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing settings
+            if remove_logo:
+                # Delete old logo file if exists
+                if existing['logo_path']:
+                    old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], '..', 'static', existing['logo_path'])
+                    if os.path.exists(old_logo_path):
+                        os.remove(old_logo_path)
+                
+                cursor.execute("""
+                    UPDATE print_settings SET
+                        company_name = %s,
+                        company_tagline = %s,
+                        company_address = %s,
+                        company_phone = %s,
+                        company_email = %s,
+                        company_website = %s,
+                        logo_path = NULL,
+                        footer_left = %s,
+                        footer_center = %s,
+                        footer_right = %s,
+                        updated_by = %s
+                    WHERE id = %s
+                """, (company_name, company_tagline, company_address, company_phone, company_email,
+                      company_website, footer_left, footer_center, footer_right,
+                      session['employee_id'], existing['id']))
+            elif logo_path:
+                # Delete old logo if new one is uploaded
+                if existing['logo_path']:
+                    old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], '..', 'static', existing['logo_path'])
+                    if os.path.exists(old_logo_path):
+                        os.remove(old_logo_path)
+                
+                cursor.execute("""
+                    UPDATE print_settings SET
+                        company_name = %s,
+                        company_tagline = %s,
+                        company_address = %s,
+                        company_phone = %s,
+                        company_email = %s,
+                        company_website = %s,
+                        logo_path = %s,
+                        footer_left = %s,
+                        footer_center = %s,
+                        footer_right = %s,
+                        updated_by = %s
+                    WHERE id = %s
+                """, (company_name, company_tagline, company_address, company_phone, company_email,
+                      company_website, logo_path, footer_left, footer_center, footer_right,
+                      session['employee_id'], existing['id']))
+            else:
+                cursor.execute("""
+                    UPDATE print_settings SET
+                        company_name = %s,
+                        company_tagline = %s,
+                        company_address = %s,
+                        company_phone = %s,
+                        company_email = %s,
+                        company_website = %s,
+                        footer_left = %s,
+                        footer_center = %s,
+                        footer_right = %s,
+                        updated_by = %s
+                    WHERE id = %s
+                """, (company_name, company_tagline, company_address, company_phone, company_email,
+                      company_website, footer_left, footer_center, footer_right,
+                      session['employee_id'], existing['id']))
+        else:
+            # Insert new settings
+            cursor.execute("""
+                INSERT INTO print_settings 
+                (company_name, company_tagline, company_address, company_phone, company_email,
+                 company_website, logo_path, footer_left, footer_center, footer_right, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (company_name, company_tagline, company_address, company_phone, company_email,
+                  company_website, logo_path, footer_left, footer_center, footer_right,
+                  session['employee_id']))
+        
+        conn.commit()
+        flash('Print settings updated successfully!', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error updating print settings: {str(e)}', 'danger')
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return redirect(url_for('print_settings'))
 
 @app.route('/settings/backups')
 def backup_settings():
@@ -3116,6 +4126,564 @@ def delete_role(role_id):
         conn.rollback()
         flash(f'Error deleting role: {str(e)}', 'danger')
         return redirect(url_for('manage_roles'))
+    finally:
+        cursor.close()
+        conn.close()
+
+# Data Import Routes
+@app.route('/data-import')
+def data_import():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    return render_template('data_import.html')
+
+@app.route('/data-import/download-template/<data_type>')
+def download_import_template(data_type):
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from flask import send_file
+    from io import BytesIO
+    
+    wb = Workbook()
+    ws = wb.active
+    
+    # Style for header
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    if data_type == 'vehicles':
+        from openpyxl.worksheet.datavalidation import DataValidation
+        
+        ws.title = 'Vehicles Template'
+        headers = ['Vehicle Number*', 'Make*', 'Model*', 'Year*', 'Color', 
+                   'Vehicle Type', 'Status', 'Mileage', 'Last Service Date (YYYY-MM-DD)', 
+                   'Expected Fuel Consumption (km/L)', 'Notes']
+        ws.append(headers)
+        
+        # Add example row
+        ws.append(['V001', 'Toyota', 'Corolla', '2020', 'White', 
+                   'Sedan', 'available', '50000', '2024-01-15', '14.5', 'Fleet vehicle'])
+        
+        # Add data validation for Status
+        status_list = 'available,in_use,maintenance,out_of_service'
+        status_dv = DataValidation(type="list", formula1=f'"{status_list}"', allow_blank=True)
+        status_dv.prompt = 'Select status from the dropdown'
+        status_dv.promptTitle = 'Vehicle Status'
+        ws.add_data_validation(status_dv)
+        status_dv.add(f'G2:G1001')
+        
+        # Add data validation for Fuel Type
+        fuel_type_list = 'Petrol,Diesel,Electric,Hybrid'
+        fuel_type_dv = DataValidation(type="list", formula1=f'"{fuel_type_list}"', allow_blank=True)
+        fuel_type_dv.prompt = 'Select fuel type from the dropdown'
+        fuel_type_dv.promptTitle = 'Fuel Type'
+        ws.add_data_validation(fuel_type_dv)
+        fuel_type_dv.add(f'H2:H1001')
+        
+        # Add data validation for Transmission
+        transmission_list = 'Automatic,Manual'
+        transmission_dv = DataValidation(type="list", formula1=f'"{transmission_list}"', allow_blank=True)
+        transmission_dv.prompt = 'Select transmission from the dropdown'
+        transmission_dv.promptTitle = 'Transmission'
+        ws.add_data_validation(transmission_dv)
+        transmission_dv.add(f'I2:I1001')
+        
+        # Add notes
+        ws.append([])
+        ws.append(['Notes:'])
+        ws.append(['* Required fields'])
+        ws.append(['Status dropdown: Available, In Use, Maintenance, Out of Service'])
+        ws.append(['Fuel Type dropdown: Petrol, Diesel, Electric, Hybrid'])
+        ws.append(['Transmission dropdown: Automatic, Manual'])
+        
+    elif data_type == 'employees':
+        from openpyxl.worksheet.datavalidation import DataValidation
+        
+        ws.title = 'Employees Template'
+        headers = ['Username*', 'Email*', 'Password*', 'Employee ID*', 'Phone', 
+                   'Department', 'Position', 'Status']
+        ws.append(headers)
+        
+        # Add example row
+        ws.append(['john.doe', 'john@example.com', 'password123', 'EMP001', 
+                   '+1234567890', 'Operations', 'Driver', 'active'])
+        
+        # Add data validation for Status
+        status_list = 'active,inactive'
+        status_dv = DataValidation(type="list", formula1=f'"{status_list}"', allow_blank=True)
+        status_dv.prompt = 'Select status from the dropdown'
+        status_dv.promptTitle = 'Employee Status'
+        ws.add_data_validation(status_dv)
+        status_dv.add(f'H2:H1001')
+        
+        # Add notes
+        ws.append([])
+        ws.append(['Notes:'])
+        ws.append(['* Required fields'])
+        ws.append(['Status dropdown: active, inactive'])
+        ws.append(['Password will be hashed during import'])
+        
+    elif data_type == 'fuel_records':
+        from openpyxl.worksheet.datavalidation import DataValidation
+        
+        ws.title = 'Fuel Records Template'
+        headers = ['Vehicle Number*', 'Employee Username*', 'Fuel Date (YYYY-MM-DD HH:MM)*', 
+                   'Fuel Amount (Liters)*', 'Fuel Cost*', 'Odometer Reading', 
+                   'Fuel Type', 'Station Name', 'Payment Method']
+        ws.append(headers)
+        
+        # Get vehicles and employees from database for dropdowns
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT vehicle_number, make, model FROM vehicles ORDER BY vehicle_number")
+            vehicles = cursor.fetchall()
+            
+            cursor.execute("SELECT username, employee_id FROM employees ORDER BY username")
+            employees = cursor.fetchall()
+        finally:
+            cursor.close()
+            conn.close()
+        
+        # Create reference sheets for dropdowns
+        if vehicles:
+            # Create Vehicles reference sheet
+            vehicles_sheet = wb.create_sheet('Vehicles_Reference')
+            vehicles_sheet.append(['Vehicle Number', 'Make', 'Model'])
+            vehicle_numbers = []
+            for vehicle in vehicles:
+                vehicles_sheet.append([vehicle['vehicle_number'], vehicle['make'], vehicle['model']])
+                vehicle_numbers.append(vehicle['vehicle_number'])
+            
+            # Hide the reference sheet
+            vehicles_sheet.sheet_state = 'hidden'
+            
+            # Create data validation for Vehicle Number column
+            if vehicle_numbers:
+                vehicle_list = ','.join(vehicle_numbers)
+                vehicle_dv = DataValidation(type="list", formula1=f'"{vehicle_list}"', allow_blank=False)
+                vehicle_dv.error = 'Please select a vehicle from the list'
+                vehicle_dv.errorTitle = 'Invalid Vehicle'
+                vehicle_dv.prompt = 'Select a vehicle from the dropdown'
+                vehicle_dv.promptTitle = 'Vehicle Selection'
+                ws.add_data_validation(vehicle_dv)
+                # Apply to first 1000 rows
+                vehicle_dv.add(f'A2:A1001')
+        
+        if employees:
+            # Create Employees reference sheet
+            employees_sheet = wb.create_sheet('Employees_Reference')
+            employees_sheet.append(['Username', 'Employee ID'])
+            employee_usernames = []
+            for employee in employees:
+                employees_sheet.append([employee['username'], employee['employee_id'] or ''])
+                employee_usernames.append(employee['username'])
+            
+            # Hide the reference sheet
+            employees_sheet.sheet_state = 'hidden'
+            
+            # Create data validation for Employee Username column
+            if employee_usernames:
+                employee_list = ','.join(employee_usernames)
+                employee_dv = DataValidation(type="list", formula1=f'"{employee_list}"', allow_blank=False)
+                employee_dv.error = 'Please select an employee from the list'
+                employee_dv.errorTitle = 'Invalid Employee'
+                employee_dv.prompt = 'Select an employee from the dropdown'
+                employee_dv.promptTitle = 'Employee Selection'
+                ws.add_data_validation(employee_dv)
+                # Apply to first 1000 rows
+                employee_dv.add(f'B2:B1001')
+        
+        # Create data validation for Fuel Type
+        fuel_types = ['Petrol', 'Diesel', 'Electric', 'Hybrid']
+        fuel_type_list = ','.join(fuel_types)
+        fuel_type_dv = DataValidation(type="list", formula1=f'"{fuel_type_list}"', allow_blank=True)
+        fuel_type_dv.prompt = 'Select fuel type from the dropdown'
+        fuel_type_dv.promptTitle = 'Fuel Type'
+        ws.add_data_validation(fuel_type_dv)
+        fuel_type_dv.add(f'G2:G1001')
+        
+        # Add example row (only if we have vehicles and employees)
+        if vehicles and employees:
+            ws.append([vehicles[0]['vehicle_number'], employees[0]['username'], 
+                      '2024-01-15 10:30', '45.5', '2500.00', 
+                      '52000', 'Petrol', 'Shell Station', 'Company Card'])
+        else:
+            ws.append(['', '', '2024-01-15 10:30', '45.5', '2500.00', 
+                      '52000', 'Petrol', 'Shell Station', 'Company Card'])
+        
+        # Add notes
+        ws.append([])
+        ws.append(['Notes:'])
+        ws.append(['* Required fields'])
+        ws.append(['Vehicle Number and Employee Username have dropdown lists - click to select'])
+        ws.append(['Only vehicles and employees currently in the system are available'])
+        ws.append(['Fuel Type has dropdown: Petrol, Diesel, Electric, Hybrid'])
+        ws.append(['Date format: YYYY-MM-DD HH:MM (e.g., 2024-01-15 10:30)'])
+        ws.append(['Download fresh template if vehicles/employees have been added recently'])
+    
+    # Style the header row
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column = list(column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column[0].column_letter].width = adjusted_width
+    
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f'{data_type}_import_template.xlsx'
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route('/data-import/upload', methods=['POST'])
+def upload_import_data():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    data_type = request.form.get('data_type')
+    
+    if 'file' not in request.files:
+        flash('No file uploaded!', 'danger')
+        return redirect(url_for('data_import'))
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        flash('No file selected!', 'danger')
+        return redirect(url_for('data_import'))
+    
+    if not file.filename.endswith('.xlsx'):
+        flash('Only .xlsx files are allowed!', 'danger')
+        return redirect(url_for('data_import'))
+    
+    try:
+        from openpyxl import load_workbook
+        from datetime import datetime
+        
+        wb = load_workbook(file)
+        ws = wb.active
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        # Skip header row
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        
+        if data_type == 'vehicles':
+            for idx, row in enumerate(rows, start=2):
+                # Skip empty rows or notes section
+                if not row[0] or str(row[0]).startswith('Notes'):
+                    continue
+                
+                try:
+                    vehicle_number, make, model, year, color, vehicle_type, status, mileage, last_service_date, expected_fuel_consumption, notes = row[:11]
+                    
+                    # Required fields
+                    if not all([vehicle_number, make, model, year]):
+                        errors.append(f"Row {idx}: Missing required fields")
+                        error_count += 1
+                        continue
+                    
+                    # Check if vehicle already exists
+                    cursor.execute("SELECT id FROM vehicles WHERE vehicle_number = %s", (vehicle_number,))
+                    if cursor.fetchone():
+                        errors.append(f"Row {idx}: Vehicle {vehicle_number} already exists")
+                        error_count += 1
+                        continue
+                    
+                    # Parse date
+                    if last_service_date:
+                        if isinstance(last_service_date, str):
+                            last_service_date = datetime.strptime(last_service_date, '%Y-%m-%d').date()
+                    
+                    cursor.execute("""
+                        INSERT INTO vehicles 
+                        (vehicle_number, make, model, year, color, vehicle_type, 
+                         status, mileage, last_service_date, expected_fuel_consumption, notes)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (vehicle_number, make, model, year, color, vehicle_type,
+                          status or 'available', mileage, last_service_date, expected_fuel_consumption, notes))
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+                    error_count += 1
+        
+        elif data_type == 'employees':
+            for idx, row in enumerate(rows, start=2):
+                if not row[0] or str(row[0]).startswith('Notes'):
+                    continue
+                
+                try:
+                    username, email, password, employee_id, phone, department, position, status = row[:8]
+                    
+                    if not all([username, email, password, employee_id]):
+                        errors.append(f"Row {idx}: Missing required fields")
+                        error_count += 1
+                        continue
+                    
+                    # Check if employee exists
+                    cursor.execute("SELECT id FROM employees WHERE username = %s OR email = %s OR employee_id = %s", (username, email, employee_id))
+                    if cursor.fetchone():
+                        errors.append(f"Row {idx}: Employee {username}, email, or employee ID already exists")
+                        error_count += 1
+                        continue
+                    
+                    # Hash password
+                    hashed_password = generate_password_hash(password)
+                    
+                    cursor.execute("""
+                        INSERT INTO employees 
+                        (username, email, password_hash, employee_id, phone, department, 
+                         position, status)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (username, email, hashed_password, employee_id, phone, department,
+                          position, status or 'active'))
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+                    error_count += 1
+        
+        elif data_type == 'fuel_records':
+            for idx, row in enumerate(rows, start=2):
+                if not row[0] or str(row[0]).startswith('Notes'):
+                    continue
+                
+                try:
+                    vehicle_number, employee_username, fuel_date, fuel_amount, fuel_cost, odometer, fuel_type, station, payment = row[:9]
+                    
+                    if not all([vehicle_number, employee_username, fuel_date, fuel_amount, fuel_cost]):
+                        errors.append(f"Row {idx}: Missing required fields")
+                        error_count += 1
+                        continue
+                    
+                    # Get vehicle ID
+                    cursor.execute("SELECT id FROM vehicles WHERE vehicle_number = %s", (vehicle_number,))
+                    vehicle = cursor.fetchone()
+                    if not vehicle:
+                        errors.append(f"Row {idx}: Vehicle {vehicle_number} not found")
+                        error_count += 1
+                        continue
+                    
+                    # Get employee ID
+                    cursor.execute("SELECT id FROM employees WHERE username = %s", (employee_username,))
+                    employee = cursor.fetchone()
+                    if not employee:
+                        errors.append(f"Row {idx}: Employee {employee_username} not found")
+                        error_count += 1
+                        continue
+                    
+                    # Parse datetime
+                    if isinstance(fuel_date, str):
+                        fuel_date = datetime.strptime(fuel_date, '%Y-%m-%d %H:%M')
+                    
+                    cursor.execute("""
+                        INSERT INTO fuel_records 
+                        (vehicle_id, employee_id, fuel_date, fuel_amount, fuel_cost, 
+                         odometer_reading, fuel_type, station_name, payment_method)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (vehicle['id'], employee['id'], fuel_date, fuel_amount, fuel_cost,
+                          odometer, fuel_type, station, payment))
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+                    error_count += 1
+        
+        conn.commit()
+        
+        # Show results
+        if success_count > 0:
+            flash(f'Successfully imported {success_count} records!', 'success')
+        
+        if error_count > 0:
+            flash(f'{error_count} records failed to import.', 'warning')
+            for error in errors[:10]:  # Show first 10 errors
+                flash(error, 'danger')
+            if len(errors) > 10:
+                flash(f'... and {len(errors) - 10} more errors', 'danger')
+        
+        return redirect(url_for('data_import'))
+        
+    except Exception as e:
+        flash(f'Error processing file: {str(e)}', 'danger')
+        return redirect(url_for('data_import'))
+    finally:
+        cursor.close()
+        conn.close()
+
+# Fuel Exceptions Report
+@app.route('/fuel-exceptions-report')
+def fuel_exceptions_report():
+    if 'employee_id' not in session:
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('employee_login'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get default threshold setting
+        default_threshold = float(get_setting('default_fuel_consumption_threshold', 18))
+        
+        # Get filters
+        vehicle_filter = request.args.get('vehicle_filter', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+        
+        # Build query to get fuel records with consumption calculation
+        query = """
+            SELECT 
+                fr.id,
+                fr.fuel_date,
+                fr.fuel_amount,
+                fr.fuel_cost,
+                fr.odometer_reading,
+                fr.station_name,
+                v.id as vehicle_id,
+                v.vehicle_number,
+                v.make,
+                v.model,
+                v.expected_fuel_consumption,
+                e.username as employee_name,
+                e.employee_id
+            FROM fuel_records fr
+            JOIN vehicles v ON fr.vehicle_id = v.id
+            JOIN employees e ON fr.employee_id = e.id
+            WHERE 1=1
+        """
+        params = []
+        
+        if vehicle_filter:
+            query += " AND v.id = %s"
+            params.append(vehicle_filter)
+        
+        if date_from:
+            query += " AND fr.fuel_date >= %s"
+            params.append(date_from)
+        
+        if date_to:
+            query += " AND fr.fuel_date <= %s"
+            params.append(date_to + ' 23:59:59')
+        
+        query += " ORDER BY v.vehicle_number, fr.fuel_date"
+        
+        cursor.execute(query, params)
+        fuel_records = cursor.fetchall()
+        
+        # Calculate consumption for each record and identify exceptions
+        exceptions = []
+        vehicles_data = {}
+        
+        for i, record in enumerate(fuel_records):
+            vehicle_id = record['vehicle_id']
+            
+            if vehicle_id not in vehicles_data:
+                vehicles_data[vehicle_id] = []
+            
+            vehicles_data[vehicle_id].append(record)
+        
+        # Process each vehicle's records
+        for vehicle_id, records in vehicles_data.items():
+            # Sort by date
+            records.sort(key=lambda x: x['fuel_date'])
+            
+            # Get expected consumption (vehicle-specific or default)
+            expected_consumption = records[0]['expected_fuel_consumption'] or default_threshold
+            
+            for i in range(1, len(records)):
+                current = records[i]
+                previous = records[i-1]
+                
+                # Only calculate if both have odometer readings
+                if current['odometer_reading'] and previous['odometer_reading']:
+                    distance = float(current['odometer_reading']) - float(previous['odometer_reading'])
+                    
+                    if distance > 0:
+                        fuel_used = float(previous['fuel_amount'])
+                        actual_consumption = distance / fuel_used  # km per liter
+                        
+                        # Check if consumption is worse than expected (lower km/L = worse)
+                        if actual_consumption < expected_consumption:
+                            exception_data = {
+                                'fuel_record_id': previous['id'],
+                                'fuel_date': previous['fuel_date'],
+                                'vehicle_number': previous['vehicle_number'],
+                                'vehicle_make_model': f"{previous['make']} {previous['model']}",
+                                'employee': f"{previous['employee_name']} ({previous['employee_id']})",
+                                'fuel_amount': previous['fuel_amount'],
+                                'fuel_cost': previous['fuel_cost'],
+                                'distance': distance,
+                                'actual_consumption': actual_consumption,
+                                'expected_consumption': expected_consumption,
+                                'difference': expected_consumption - actual_consumption,
+                                'percentage_worse': ((expected_consumption - actual_consumption) / expected_consumption) * 100,
+                                'station_name': previous['station_name'],
+                                'odometer_from': previous['odometer_reading'],
+                                'odometer_to': current['odometer_reading']
+                            }
+                            exceptions.append(exception_data)
+        
+        # Sort by percentage worse (worst first)
+        exceptions.sort(key=lambda x: x['percentage_worse'], reverse=True)
+        
+        # Summary statistics
+        summary = {
+            'total_exceptions': len(exceptions),
+            'total_vehicles': len(set(e['vehicle_number'] for e in exceptions)),
+            'avg_percentage_worse': sum(e['percentage_worse'] for e in exceptions) / len(exceptions) if exceptions else 0,
+            'worst_consumption': min(exceptions, key=lambda x: x['actual_consumption']) if exceptions else None
+        }
+        
+        # Get vehicles list for filter
+        cursor.execute("SELECT id, vehicle_number, make, model FROM vehicles ORDER BY vehicle_number")
+        vehicles = cursor.fetchall()
+        
+        return render_template('fuel_exceptions_report.html',
+                             exceptions=exceptions,
+                             summary=summary,
+                             vehicles=vehicles,
+                             vehicle_filter=vehicle_filter,
+                             date_from=date_from,
+                             date_to=date_to,
+                             default_threshold=default_threshold)
+    
     finally:
         cursor.close()
         conn.close()

@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Fuel Exceptions Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>⚠️ Fuel Exceptions Report</h2>
+        <div>
+            <a href="{{ url_for('fuel_reports') }}" class="btn btn-secondary">
+                <i class="fas fa-chart-line"></i> Back to Fuel Reports
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> <strong>About This Report:</strong>
+        This report shows fuel records where actual consumption is worse than expected. Expected consumption is based on vehicle-specific settings or the system default ({{ "%.2f"|format(default_threshold) }} km/L).
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('fuel_exceptions_report') }}">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="vehicle_filter" class="form-label">Vehicle</label>
+                        <select name="vehicle_filter" id="vehicle_filter" class="form-select">
+                            <option value="">All Vehicles</option>
+                            {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}" {% if vehicle_filter and vehicle_filter|string == vehicle.id|string %}selected{% endif %}>
+                                {{ vehicle.vehicle_number }} - {{ vehicle.make }} {{ vehicle.model }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">From Date</label>
+                        <input type="date" name="date_from" id="date_from" class="form-control" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">To Date</label>
+                        <input type="date" name="date_to" id="date_to" class="form-control" value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Filter
+                        </button>
+                    </div>
+                </div>
+                {% if vehicle_filter or date_from or date_to %}
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <a href="{{ url_for('fuel_exceptions_report') }}" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-times"></i> Clear Filters
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    {% if summary.total_exceptions > 0 %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">📊 Summary</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <h3 class="text-danger">{{ summary.total_exceptions }}</h3>
+                    <p class="text-muted">Total Exceptions</p>
+                </div>
+                <div class="col-md-3">
+                    <h3>{{ summary.total_vehicles }}</h3>
+                    <p class="text-muted">Vehicles Affected</p>
+                </div>
+                <div class="col-md-3">
+                    <h3 class="text-warning">{{ "%.1f"|format(summary.avg_percentage_worse) }}%</h3>
+                    <p class="text-muted">Avg % Worse</p>
+                </div>
+                <div class="col-md-3">
+                    {% if summary.worst_consumption %}
+                    <h3 class="text-danger">{{ "%.2f"|format(summary.worst_consumption.actual_consumption) }} km/L</h3>
+                    <p class="text-muted">Worst Consumption</p>
+                    <small class="text-muted">{{ summary.worst_consumption.vehicle_number }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exceptions Table -->
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Exceptions Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Vehicle</th>
+                            <th>Employee</th>
+                            <th>Distance (km)</th>
+                            <th>Fuel (L)</th>
+                            <th>Actual (km/L)</th>
+                            <th>Expected (km/L)</th>
+                            <th>Difference</th>
+                            <th>% Worse</th>
+                            <th>Station</th>
+                            <th>Odometer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exception in exceptions %}
+                        <tr class="{% if exception.percentage_worse > 30 %}table-danger{% elif exception.percentage_worse > 15 %}table-warning{% endif %}">
+                            <td>{{ exception.fuel_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <strong>{{ exception.vehicle_number }}</strong><br>
+                                <small class="text-muted">{{ exception.vehicle_make_model }}</small>
+                            </td>
+                            <td>{{ exception.employee }}</td>
+                            <td>{{ "%.0f"|format(exception.distance) }}</td>
+                            <td>{{ "%.2f"|format(exception.fuel_amount) }}</td>
+                            <td>
+                                <span class="badge bg-danger">
+                                    {{ "%.2f"|format(exception.actual_consumption) }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-success">
+                                    {{ "%.2f"|format(exception.expected_consumption) }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark">
+                                    -{{ "%.2f"|format(exception.difference) }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong class="text-danger">{{ "%.1f"|format(exception.percentage_worse) }}%</strong>
+                            </td>
+                            <td>{{ exception.station_name or 'N/A' }}</td>
+                            <td>
+                                <small>{{ "%.0f"|format(exception.odometer_from) }} → {{ "%.0f"|format(exception.odometer_to) }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> 
+                    Color coding: 
+                    <span class="badge bg-danger">Red</span> = >30% worse | 
+                    <span class="badge bg-warning text-dark">Yellow</span> = 15-30% worse
+                </small>
+                <span class="text-muted">Total: {{ exceptions|length }} exception(s)</span>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i> <strong>No Exceptions Found!</strong>
+        {% if vehicle_filter or date_from or date_to %}
+        All fuel records in the selected period meet or exceed expected consumption levels.
+        {% else %}
+        All fuel records meet or exceed expected consumption levels.
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

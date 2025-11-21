@@ -74,6 +74,12 @@
                         </div>
                         
                         <div class="mb-3">
+                            <label for="expected_fuel_consumption" class="form-label">Expected Fuel Consumption (km/L)</label>
+                            <input type="number" class="form-control" id="expected_fuel_consumption" name="expected_fuel_consumption" step="0.01" min="0" value="{{ vehicle.expected_fuel_consumption if vehicle.expected_fuel_consumption else '' }}" placeholder="e.g., 12.5">
+                            <small class="form-text text-muted">Expected kilometers per liter for this vehicle. Leave blank to use system default (18 km/L).</small>
+                        </div>
+                        
+                        <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="3">{{ vehicle.notes or '' }}</textarea>
                         </div>

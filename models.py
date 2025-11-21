@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
     status VARCHAR(20) DEFAULT 'available',
     mileage INT,
     last_service_date DATE,
+    expected_fuel_consumption DECIMAL(5,2) COMMENT 'Expected km per liter',
     notes TEXT,
     added_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

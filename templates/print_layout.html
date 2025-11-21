@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Print Document{% endblock %}</title>
+    <style>
+        /* Print Layout Styles */
+        @page {
+            size: A4;
+            margin: 15mm 10mm 15mm 10mm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #000;
+        }
+
+        /* Header Section */
+        .print-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #333;
+            margin-bottom: 15px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-logo {
+            max-width: 150px;
+            max-height: 80px;
+            margin-bottom: 8px;
+        }
+
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            margin-bottom: 3px;
+        }
+
+        .company-tagline {
+            font-size: 9pt;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 9pt;
+            color: #333;
+            line-height: 1.3;
+        }
+
+        .document-info {
+            text-align: right;
+            font-size: 9pt;
+        }
+
+        .document-title {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .document-meta {
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* Content Section */
+        .print-content {
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        /* Footer Section */
+        .print-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 10mm;
+            border-top: 1px solid #ccc;
+            font-size: 8pt;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+        }
+
+        .footer-left {
+            text-align: left;
+        }
+
+        .footer-center {
+            text-align: center;
+        }
+
+        .footer-right {
+            text-align: right;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10pt;
+        }
+
+        th, td {
+            border: 1px solid #333;
+            padding: 6px 8px;
+            text-align: left;
+        }
+
+        thead th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            color: #000;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* Badges and Status */
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9pt;
+            font-weight: bold;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .badge-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .badge-warning {
+            background-color: #ffc107;
+            color: #000;
+        }
+
+        .badge-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .badge-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .badge-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        /* Cards and Sections */
+        .section {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            font-size: 13pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 6px 10px;
+            background-color: #f0f0f0;
+            border-left: 4px solid #333;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .section-content {
+            padding: 5px 0;
+        }
+
+        /* Summary Box */
+        .summary-box {
+            background-color: #f9f9f9;
+            border: 2px solid #333;
+            padding: 12px;
+            margin-bottom: 15px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .summary-title {
+            font-size: 11pt;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 10pt;
+        }
+
+        /* Page Breaks */
+        .page-break {
+            page-break-after: always;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
+        /* Utilities */
+        .text-center {
+            text-align: center;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-bold {
+            font-weight: bold;
+        }
+
+        .text-muted {
+            color: #666;
+        }
+
+        /* Section Title */
+        .section-title {
+            background-color: #f0f0f0;
+            padding: 5px 10px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            border-left: 4px solid #333;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* Signature Box */
+        .signature-box {
+            border: 1px solid #333;
+            padding: 40px 20px 10px 20px;
+            margin-top: 20px;
+            text-align: center;
+            min-height: 80px;
+        }
+
+        .mt-10 {
+            margin-top: 10px;
+        }
+
+        .mb-10 {
+            margin-bottom: 10px;
+        }
+
+        /* Print-specific styles */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .print-footer {
+                position: fixed;
+                bottom: 0;
+            }
+
+            .print-content {
+                margin-bottom: 40px; /* Space for footer */
+            }
+
+            /* Page counter */
+            .page-number:after {
+                content: counter(page);
+            }
+
+            .total-pages:after {
+                content: counter(pages);
+            }
+        }
+
+        @media screen {
+            body {
+                background-color: #f5f5f5;
+                padding: 20px;
+            }
+
+            .print-wrapper {
+                max-width: 210mm;
+                margin: 0 auto;
+                background: white;
+                padding: 15mm 10mm;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+
+            .print-footer {
+                position: relative;
+            }
+        }
+    </style>
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+    <div class="print-wrapper">
+        <!-- Header -->
+        <div class="print-header">
+            <div class="company-info">
+                <!-- Logo - Replace with your actual logo -->
+                {% if print_config and print_config.logo_path %}
+                <img src="{{ url_for('static', filename=print_config.logo_path) }}" alt="Company Logo" class="company-logo">
+                {% elif company_logo %}
+                <img src="{{ company_logo }}" alt="Company Logo" class="company-logo">
+                {% else %}
+                <div style="width: 150px; height: 60px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <span style="color: #999; font-size: 10pt;">Company Logo</span>
+                </div>
+                {% endif %}
+                
+                <div class="company-name">
+                    {% if print_config and print_config.company_name %}
+                        {{ print_config.company_name }}
+                    {% else %}
+                        {% block company_name %}Your Fleet Management System{% endblock %}
+                    {% endif %}
+                </div>
+                <div class="company-tagline">
+                    {% if print_config and print_config.company_tagline %}
+                        {{ print_config.company_tagline }}
+                    {% else %}
+                        {% block company_tagline %}Efficient Fleet Operations{% endblock %}
+                    {% endif %}
+                </div>
+                <div class="company-details">
+                    {% if print_config %}
+                        {% if print_config.company_address %}{{ print_config.company_address }}<br>{% endif %}
+                        {% if print_config.company_phone or print_config.company_email %}
+                            {% if print_config.company_phone %}Phone: {{ print_config.company_phone }}{% endif %}
+                            {% if print_config.company_phone and print_config.company_email %} | {% endif %}
+                            {% if print_config.company_email %}Email: {{ print_config.company_email }}{% endif %}
+                            <br>
+                        {% endif %}
+                        {% if print_config.company_website %}Website: {{ print_config.company_website }}{% endif %}
+                    {% else %}
+                        {% block company_details %}
+                        123 Main Street, Business District<br>
+                        Phone: +1 (555) 123-4567 | Email: info@fleetmanagement.com<br>
+                        Website: www.fleetmanagement.com
+                        {% endblock %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="document-info">
+                <div class="document-title">{% block document_title %}DOCUMENT TITLE{% endblock %}</div>
+                <div class="document-meta">
+                    <strong>Date:</strong> <span id="print-date"></span><br>
+                    <strong>Time:</strong> <span id="print-time"></span><br>
+                    {% block document_meta %}{% endblock %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="print-content">
+            {% block content %}
+            <!-- Your content goes here -->
+            {% endblock %}
+        </div>
+
+        <!-- Footer -->
+        <div class="print-footer">
+            <div class="footer-left">
+                {% if print_config and print_config.footer_left %}
+                    {{ print_config.footer_left.replace('{username}', session.get('username', 'System User')) }}
+                {% else %}
+                    {% block footer_left %}
+                    {{ session.get('username', 'System User') }}
+                    {% endblock %}
+                {% endif %}
+            </div>
+            <div class="footer-center">
+                {% if print_config and print_config.footer_center %}
+                    {{ print_config.footer_center.replace('{page}', '<span class="page-number"></span>')|safe }}
+                {% else %}
+                    {% block footer_center %}
+                    Page <span class="page-number"></span>
+                    {% endblock %}
+                {% endif %}
+            </div>
+            <div class="footer-right">
+                {% if print_config and print_config.footer_right %}
+                    {{ print_config.footer_right }}
+                {% else %}
+                    {% block footer_right %}
+                    Confidential Document
+                    {% endblock %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set current date and time
+        const now = new Date();
+        document.getElementById('print-date').textContent = now.toLocaleDateString();
+        document.getElementById('print-time').textContent = now.toLocaleTimeString();
+    </script>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

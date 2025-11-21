@@ -4,16 +4,29 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
         <h2>🔔 Service Due Notifications</h2>
         <div>
+            <a href="{{ url_for('service_notifications_print') }}" class="btn btn-success me-2" target="_blank">
+                <i class="fas fa-file-alt"></i> Print Preview
+            </a>
             <span class="badge bg-danger">{{ overdue|length }} Overdue</span>
             <span class="badge bg-warning text-dark">{{ due_soon|length }} Due Soon</span>
             <span class="badge bg-info">{{ upcoming|length }} Upcoming</span>
         </div>
     </div>
 
-    <div class="alert alert-info">
+    <div class="print-header" style="display: none;">
+        <h2 style="text-align: center; margin-bottom: 10px;">Fleet Service Due Notifications Report</h2>
+        <p style="text-align: center; margin-bottom: 20px;">
+            <strong>Summary:</strong> {{ overdue|length }} Overdue | {{ due_soon|length }} Due Soon | {{ upcoming|length }} Upcoming | {{ no_data|length }} No Data
+        </p>
+        <script>
+            document.write('<p style="text-align: center;">Generated: ' + new Date().toLocaleString() + '</p>');
+        </script>
+    </div>
+
+    <div class="alert alert-info no-print">
         <i class="fas fa-info-circle"></i> Service notifications are automatically generated based on the latest mileage from fuel tracking records and next service mileage from service history.
     </div>
 
@@ -295,4 +308,122 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+@media print {
+    /* Hide non-essential elements */
+    .no-print, nav, .sidebar, .btn, .badge, .alert {
+        display: none !important;
+    }
+    
+    /* Show print header */
+    .print-header {
+        display: block !important;
+    }
+    
+    /* Print styling */
+    body {
+        font-size: 11pt;
+        color: #000;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 10px;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+    }
+    
+    .card-header {
+        background-color: #f0f0f0 !important;
+        color: #000 !important;
+        padding: 8px;
+        font-weight: bold;
+        border-bottom: 2px solid #000;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .bg-danger {
+        background-color: #dc3545 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .bg-warning {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .bg-success {
+        background-color: #28a745 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .bg-secondary {
+        background-color: #6c757d !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10pt;
+    }
+    
+    th, td {
+        border: 1px solid #000;
+        padding: 6px;
+        text-align: left;
+    }
+    
+    thead {
+        background-color: #e0e0e0 !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    /* Ensure badge colors print */
+    .badge {
+        display: inline-block !important;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 9pt;
+        font-weight: bold;
+    }
+    
+    /* Page breaks */
+    .card {
+        page-break-inside: avoid;
+    }
+    
+    tr {
+        page-break-inside: avoid;
+    }
+    
+    h2, h5 {
+        color: #000;
+    }
+    
+    /* Remove action column in print */
+    td:last-child, th:last-child {
+        display: none;
+    }
+}
+</style>
+
 {% endblock %}
