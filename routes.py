@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, session
+from flask import render_template, request, redirect, url_for, flash, session, g, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from app import app, get_db_connection, allowed_file
@@ -205,25 +205,89 @@ def employee_login():
             flash('All fields are required!', 'danger')
             return redirect(url_for('employee_login'))
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Debug: Check tenant context
+        print(f"Login attempt - Username: {username}")
+        print(f"Has g.tenant_db: {hasattr(g, 'tenant_db')}")
+        if hasattr(g, 'tenant_db'):
+            print(f"g.tenant_db: {g.tenant_db}")
+        print(f"Session tenant_id: {session.get('tenant_id')}")
+        print(f"Session tenant_name: {session.get('tenant_name')}")
         
-        try:
-            cursor.execute("SELECT * FROM employees WHERE username = %s", (username,))
-            employee = cursor.fetchone()
+        # Multi-tenant: Try to find user's company first
+        multi_tenant_enabled = os.environ.get('MULTI_TENANT_ENABLED', 'true').lower() == 'true'
+        if multi_tenant_enabled:
+            from tenant_manager import TenantDatabaseManager
+            from models_tenant import Company
             
-            if employee and check_password_hash(employee['password_hash'], password):
-                session['employee_id'] = employee['id']
-                session['username'] = employee['username']
-                session['user_type'] = 'employee'
-                flash(f'Welcome back, {employee["username"]}!', 'success')
-                return redirect(url_for('employee_dashboard'))
-            else:
+            # Search all tenant databases for this user
+            try:
+                with TenantDatabaseManager.main_db() as main_conn:
+                    with main_conn.cursor() as main_cursor:
+                        main_cursor.execute("SELECT * FROM companies WHERE status IN ('active', 'trial')")
+                        companies = main_cursor.fetchall()
+                        
+                        for company in companies:
+                            try:
+                                # Check if user exists in this tenant's database
+                                tenant_conn = TenantDatabaseManager.get_tenant_connection(company['database_name'])
+                                tenant_cursor = tenant_conn.cursor()
+                                
+                                tenant_cursor.execute("SELECT * FROM employees WHERE username = %s", (username,))
+                                employee = tenant_cursor.fetchone()
+                                
+                                if employee and check_password_hash(employee['password_hash'], password):
+                                    # Found the user! Set tenant context in session
+                                    session['tenant_id'] = company['id']
+                                    session['tenant_name'] = company['name']
+                                    session['employee_id'] = employee['id']
+                                    session['username'] = employee['username']
+                                    session['user_type'] = 'employee'
+                                    session['role'] = employee.get('role', 'employee')  # Set role for permissions
+                                    
+                                    print(f"✓ Login successful! Tenant: {company['name']}, User: {employee['username']}")
+                                    
+                                    flash(f'Welcome back, {employee["username"]}!', 'success')
+                                    tenant_cursor.close()
+                                    tenant_conn.close()
+                                    return redirect(url_for('employee_dashboard'))
+                                
+                                tenant_cursor.close()
+                                tenant_conn.close()
+                            except Exception as e:
+                                print(f"Error checking tenant {company['name']}: {e}")
+                                continue
+                
+                # User not found in any tenant database
+                print(f"✗ Login failed - user not found in any tenant")
                 flash('Invalid username or password!', 'danger')
                 return redirect(url_for('employee_login'))
-        finally:
-            cursor.close()
-            conn.close()
+                
+            except Exception as e:
+                print(f"Multi-tenant login error: {e}")
+                flash('Login error. Please try again.', 'danger')
+                return redirect(url_for('employee_login'))
+        else:
+            # Single-tenant mode (legacy)
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("SELECT * FROM employees WHERE username = %s", (username,))
+                employee = cursor.fetchone()
+                
+                if employee and check_password_hash(employee['password_hash'], password):
+                    session['employee_id'] = employee['id']
+                    session['username'] = employee['username']
+                    session['user_type'] = 'employee'
+                    session['role'] = employee.get('role', 'employee')  # Set role for permissions
+                    flash(f'Welcome back, {employee["username"]}!', 'success')
+                    return redirect(url_for('employee_dashboard'))
+                else:
+                    flash('Invalid username or password!', 'danger')
+                    return redirect(url_for('employee_login'))
+            finally:
+                cursor.close()
+                conn.close()
     
     return render_template('employee_login.html')
 
@@ -1151,7 +1215,8 @@ def fuel_reports():
                     'litres': record['fuel_amount']
                 }
         
-        # Reverse for display (newest first)
+        # Reverse for display (newest first) - convert tuple to list first
+        fuel_records = list(fuel_records)
         fuel_records.reverse()
         
         # Calculate summary statistics
@@ -4480,14 +4545,83 @@ def upload_import_data():
                     error_count += 1
         
         elif data_type == 'fuel_records':
+            # Detect whether the `payment_method` column exists in the fuel_records table
+            try:
+                cursor.execute("SHOW COLUMNS FROM fuel_records LIKE 'payment_method'")
+                has_payment_column = cursor.fetchone() is not None
+            except Exception:
+                has_payment_column = False
+
             for idx, row in enumerate(rows, start=2):
                 if not row[0] or str(row[0]).startswith('Notes'):
                     continue
                 
                 try:
-                    vehicle_number, employee_username, fuel_date, fuel_amount, fuel_cost, odometer, fuel_type, station, payment = row[:9]
-                    
-                    if not all([vehicle_number, employee_username, fuel_date, fuel_amount, fuel_cost]):
+                    # Safely unpack up to 9 columns, padding missing values with None
+                    vals = list(row) + [None] * 9
+                    vehicle_number, employee_username, fuel_date, fuel_amount, fuel_cost, odometer, fuel_type, station, payment = vals[:9]
+
+                    # Trim strings
+                    if isinstance(vehicle_number, str):
+                        vehicle_number = vehicle_number.strip()
+                    if isinstance(employee_username, str):
+                        employee_username = employee_username.strip()
+                    if isinstance(fuel_type, str):
+                        fuel_type = fuel_type.strip()
+                    if isinstance(station, str):
+                        station = station.strip()
+                    if isinstance(payment, str):
+                        payment = payment.strip()
+
+                    # Sanitize numeric fields: remove currency symbols/commas and convert
+                    def _to_float(val):
+                        if val is None:
+                            return None
+                        if isinstance(val, (int, float)):
+                            return float(val)
+                        s = str(val).strip()
+                        # Remove common currency symbols and thousands separators
+                        s = s.replace('$', '').replace('€', '').replace('£', '')
+                        s = s.replace(',', '')
+                        if s == '':
+                            return None
+                        try:
+                            return float(s)
+                        except Exception:
+                            raise ValueError(f"Invalid numeric value: {val}")
+
+                    def _to_int(val):
+                        if val is None or val == '':
+                            return None
+                        if isinstance(val, int):
+                            return val
+                        try:
+                            return int(float(str(val).strip().replace(',', '')))
+                        except Exception:
+                            raise ValueError(f"Invalid integer value: {val}")
+
+                    try:
+                        fuel_amount = _to_float(fuel_amount)
+                    except Exception as e:
+                        errors.append(f"Row {idx}: fuel_amount conversion error: {e} - data: {row}")
+                        error_count += 1
+                        continue
+
+                    try:
+                        fuel_cost = _to_float(fuel_cost)
+                    except Exception as e:
+                        errors.append(f"Row {idx}: fuel_cost conversion error: {e} - data: {row}")
+                        error_count += 1
+                        continue
+
+                    try:
+                        odometer = _to_int(odometer)
+                    except Exception as e:
+                        errors.append(f"Row {idx}: odometer conversion error: {e} - data: {row}")
+                        error_count += 1
+                        continue
+
+                    if not all([vehicle_number, employee_username, fuel_date, fuel_amount is not None, fuel_cost is not None]):
                         errors.append(f"Row {idx}: Missing required fields")
                         error_count += 1
                         continue
@@ -4512,18 +4646,28 @@ def upload_import_data():
                     if isinstance(fuel_date, str):
                         fuel_date = datetime.strptime(fuel_date, '%Y-%m-%d %H:%M')
                     
-                    cursor.execute("""
-                        INSERT INTO fuel_records 
-                        (vehicle_id, employee_id, fuel_date, fuel_amount, fuel_cost, 
-                         odometer_reading, fuel_type, station_name, payment_method)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (vehicle['id'], employee['id'], fuel_date, fuel_amount, fuel_cost,
-                          odometer, fuel_type, station, payment))
-                    
+                    if has_payment_column:
+                        cursor.execute("""
+                            INSERT INTO fuel_records 
+                            (vehicle_id, employee_id, fuel_date, fuel_amount, fuel_cost, 
+                             odometer_reading, fuel_type, station_name, payment_method)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (vehicle['id'], employee['id'], fuel_date, fuel_amount, fuel_cost,
+                              odometer, fuel_type, station, payment))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO fuel_records 
+                            (vehicle_id, employee_id, fuel_date, fuel_amount, fuel_cost, 
+                             odometer_reading, fuel_type, station_name)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (vehicle['id'], employee['id'], fuel_date, fuel_amount, fuel_cost,
+                              odometer, fuel_type, station))
+
                     success_count += 1
-                    
+
                 except Exception as e:
-                    errors.append(f"Row {idx}: {str(e)}")
+                    # Include row data to aid debugging of malformed rows or schema mismatches
+                    errors.append(f"Row {idx}: {str(e)} - data: {row}")
                     error_count += 1
         
         conn.commit()
@@ -4683,6 +4827,74 @@ def fuel_exceptions_report():
                              date_from=date_from,
                              date_to=date_to,
                              default_threshold=default_threshold)
+    
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# API endpoints for analytics report builder
+@app.route('/api/vehicles')
+@login_required
+def api_vehicles():
+    """Get list of all vehicles for report builder dropdowns"""
+    if 'employee_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, vehicle_number, make, model, year, status
+            FROM vehicles
+            ORDER BY vehicle_number
+        """)
+        vehicles = cursor.fetchall()
+        
+        return jsonify([{
+            'id': v['id'],
+            'vehicle_number': v['vehicle_number'],
+            'make': v['make'],
+            'model': v['model'],
+            'year': v['year'],
+            'status': v['status'],
+            'display_name': f"{v['vehicle_number']} - {v['make']} {v['model']}"
+        } for v in vehicles])
+    
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/employees')
+@login_required
+def api_employees():
+    """Get list of all employees for report builder dropdowns"""
+    if 'employee_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, username, email, employee_id, department, position, status
+            FROM employees
+            ORDER BY username
+        """)
+        employees = cursor.fetchall()
+        
+        return jsonify([{
+            'id': e['id'],
+            'username': e['username'],
+            'email': e['email'],
+            'employee_id': e['employee_id'],
+            'department': e['department'],
+            'position': e['position'],
+            'status': e['status'],
+            'display_name': f"{e['username']} ({e['employee_id'] if e['employee_id'] else 'No ID'})"
+        } for e in employees])
     
     finally:
         cursor.close()

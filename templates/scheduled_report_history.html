@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Report Execution History - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-info-box {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .info-label {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    .info-value {
+        font-size: 16px;
+        color: #333;
+        font-weight: 500;
+    }
+    .history-table {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead {
+        background: #f8f9fa;
+    }
+    th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 2px solid #dee2e6;
+    }
+    td {
+        padding: 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    tr:hover {
+        background: #f8f9fa;
+    }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .status-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    .empty-state i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    .duration {
+        color: #666;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Report Execution History</h2>
+        <a href="{{ url_for('analytics.scheduled_reports_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Reports
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Report Information -->
+    <div class="report-info-box">
+        <h5 class="mb-3">{{ report.report_name }}</h5>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Report Type</div>
+                <div class="info-value">{{ report.report_type|replace('_', ' ')|title }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Frequency</div>
+                <div class="info-value">{{ report.frequency|title }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Format</div>
+                <div class="info-value">{{ report.format|upper }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Total Executions</div>
+                <div class="info-value">{{ executions|length }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution History -->
+    <div class="history-table">
+        <h5 class="mb-3">Execution History</h5>
+        
+        {% if executions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Execution Time</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Records</th>
+                    <th>Recipients</th>
+                    <th>Error Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for execution in executions %}
+                <tr>
+                    <td>{{ execution.executed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
+                        <span class="status-badge status-{{ execution.status }}">
+                            {% if execution.status == 'success' %}
+                                <i class="fas fa-check"></i> Success
+                            {% else %}
+                                <i class="fas fa-times"></i> Failed
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="duration">
+                            {% if execution.execution_time_seconds %}
+                                {{ "%.2f"|format(execution.execution_time_seconds) }}s
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        {% if execution.records_count %}
+                            {{ execution.records_count }} record(s)
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ execution.recipients_count }}</td>
+                    <td>
+                        {% if execution.error_message %}
+                            <span class="text-danger" title="{{ execution.error_message }}">
+                                {{ execution.error_message[:50] }}{% if execution.error_message|length > 50 %}...{% endif %}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-history"></i>
+            <h4>No Execution History</h4>
+            <p>This report hasn't been executed yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

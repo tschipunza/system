@@ -1,0 +1,426 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics Dashboard - Fleet Manager{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics-mobile.css') }}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-chart-line"></i> Analytics Dashboard
+            </h2>
+        </div>
+    </div>
+
+    <!-- Key Stats Cards -->
+    <div class="row mb-4 stats-grid">
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-primary stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title label">Total Vehicles</h6>
+                            <h2 class="mb-0 number" id="stat-total-vehicles">-</h2>
+                        </div>
+                        <i class="fas fa-car fa-3x opacity-50"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small>
+                            <span id="stat-available">-</span> Available | 
+                            <span id="stat-in-use">-</span> In Use
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-success stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title label">Fuel Cost (30d)</h6>
+                            <h2 class="mb-0 number" id="stat-fuel-cost">-</h2>
+                        </div>
+                        <i class="fas fa-gas-pump fa-3x opacity-50"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small id="stat-fuel-liters">- liters</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-warning stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title label">Active Assignments</h6>
+                            <h2 class="mb-0 number" id="stat-active-assignments">-</h2>
+                        </div>
+                        <i class="fas fa-clipboard-list fa-3x opacity-50"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small>Currently assigned</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-info stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title label">Maintenance Cost (90d)</h6>
+                            <h2 class="mb-0 number" id="stat-maintenance-cost">-</h2>
+                        </div>
+                        <i class="fas fa-wrench fa-3x opacity-50"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small id="stat-maintenance-count">- services</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row mb-4">
+        <div class="col-lg-8 col-md-12 mb-3">
+            <div class="card chart-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-area"></i> Fuel Costs by Vehicle (Last 6 Months)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="fuelCostsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-12 mb-3">
+            <div class="card chart-card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-trophy"></i> Top Utilized Vehicles</h5>
+                </div>
+                <div class="card-body">
+                    <div id="topUtilizedList" class="list-group list-group-flush">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Vehicle Utilization Rate</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="utilizationChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Fuel Efficiency Trends (km/L)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="efficiencyChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Schedule -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Upcoming Maintenance Schedule</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="maintenanceScheduleTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Vehicle</th>
+                                    <th>Service Type</th>
+                                    <th>Description</th>
+                                    <th>Est. Cost</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <a href="{{ url_for('analytics.report_builder') }}" class="btn btn-primary btn-lg me-2">
+                <i class="fas fa-file-alt"></i> Custom Report Builder
+            </a>
+            <a href="{{ url_for('analytics.kpis_page') }}" class="btn btn-success btn-lg">
+                <i class="fas fa-tachometer-alt"></i> View KPIs
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Load dashboard stats
+async function loadDashboardStats() {
+    try {
+        const response = await fetch('/analytics/api/dashboard-stats');
+        const stats = await response.json();
+        
+        // Update stat cards
+        document.getElementById('stat-total-vehicles').textContent = stats.vehicles.total;
+        document.getElementById('stat-available').textContent = stats.vehicles.available;
+        document.getElementById('stat-in-use').textContent = stats.vehicles.in_use;
+        
+        document.getElementById('stat-fuel-cost').textContent = '$' + stats.fuel.total_cost.toFixed(2);
+        document.getElementById('stat-fuel-liters').textContent = stats.fuel.total_liters.toFixed(1) + ' liters';
+        
+        document.getElementById('stat-active-assignments').textContent = stats.active_assignments;
+        
+        document.getElementById('stat-maintenance-cost').textContent = '$' + stats.maintenance.total_cost.toFixed(2);
+        document.getElementById('stat-maintenance-count').textContent = stats.maintenance.total_services + ' services';
+        
+        // Update top utilized vehicles
+        const topUtilizedList = document.getElementById('topUtilizedList');
+        if (stats.top_utilized && stats.top_utilized.length > 0) {
+            topUtilizedList.innerHTML = stats.top_utilized.map((v, idx) => `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${idx + 1}. ${v.make} ${v.model}</strong>
+                        <br><small class="text-muted">${v.registration_number}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">${v.assignment_count} trips</span>
+                </div>
+            `).join('');
+        } else {
+            topUtilizedList.innerHTML = '<div class="text-center text-muted py-3">No assignment data available</div>';
+        }
+        
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Load fuel costs chart
+async function loadFuelCostsChart() {
+    try {
+        const response = await fetch('/analytics/api/fuel-costs-chart');
+        const data = await response.json();
+        
+        const ctx = document.getElementById('fuelCostsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading fuel costs chart:', error);
+    }
+}
+
+// Load utilization chart
+async function loadUtilizationChart() {
+    try {
+        const response = await fetch('/analytics/api/vehicle-utilization?days=30');
+        const data = await response.json();
+        
+        const ctx = document.getElementById('utilizationChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading utilization chart:', error);
+    }
+}
+
+// Load efficiency trends chart
+async function loadEfficiencyChart() {
+    try {
+        const response = await fetch('/analytics/api/fuel-efficiency-trends');
+        const data = await response.json();
+        
+        const ctx = document.getElementById('efficiencyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(1) + ' km/L';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading efficiency chart:', error);
+    }
+}
+
+// Load maintenance schedule
+async function loadMaintenanceSchedule() {
+    try {
+        const response = await fetch('/analytics/api/maintenance-schedule');
+        const data = await response.json();
+        
+        const tbody = document.querySelector('#maintenanceScheduleTable tbody');
+        if (data.length > 0) {
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.scheduled_date}</td>
+                    <td>${item.make} ${item.model}<br><small class="text-muted">${item.registration_number}</small></td>
+                    <td>${item.service_type}</td>
+                    <td>${item.description || '-'}</td>
+                    <td>$${item.cost.toFixed(2)}</td>
+                    <td>
+                        <span class="badge bg-${item.status === 'completed' ? 'success' : item.status === 'pending' ? 'warning' : 'secondary'}">
+                            ${item.status}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No upcoming maintenance scheduled</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading maintenance schedule:', error);
+    }
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardStats();
+    loadFuelCostsChart();
+    loadUtilizationChart();
+    loadEfficiencyChart();
+    loadMaintenanceSchedule();
+});
+</script>
+
+<style>
+.opacity-50 {
+    opacity: 0.5;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    font-weight: 600;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+</style>
+{% endblock %}

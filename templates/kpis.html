@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}Key Performance Indicators - Fleet Manager{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics-mobile.css') }}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-tachometer-alt"></i> Key Performance Indicators (KPIs)
+            </h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Cost per KM -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <i class="fas fa-dollar-sign fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Cost per KM</h5>
+                    <h2 class="text-primary" id="kpi-cost-per-km">$0.00</h2>
+                    <p class="text-muted small">Last 30 days</p>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="kpi-cost-bar"></div>
+                    </div>
+                    <p class="text-muted small mt-2">Target: < $0.50/km</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fuel Efficiency -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 border-success">
+                <div class="card-body text-center">
+                    <i class="fas fa-leaf fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Avg Fuel Efficiency</h5>
+                    <h2 class="text-success" id="kpi-fuel-efficiency">0.0 km/L</h2>
+                    <p class="text-muted small">Last 90 days</p>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 0%" id="kpi-efficiency-bar"></div>
+                    </div>
+                    <p class="text-muted small mt-2">Target: > 10 km/L</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicle Downtime -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="fas fa-tools fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">Vehicle Downtime</h5>
+                    <h2 class="text-warning" id="kpi-downtime">0%</h2>
+                    <p class="text-muted small">In maintenance</p>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: 0%" id="kpi-downtime-bar"></div>
+                    </div>
+                    <p class="text-muted small mt-2">Target: < 10%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Utilization Rate -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 border-info">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-pie fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Utilization Rate</h5>
+                    <h2 class="text-info" id="kpi-utilization">0%</h2>
+                    <p class="text-muted small">Last 30 days</p>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: 0%" id="kpi-utilization-bar"></div>
+                    </div>
+                    <p class="text-muted small mt-2">Target: > 70%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Trends Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-area"></i> KPI Trends (Last 6 Months)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="kpiTrendsChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Details Table -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Detailed Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Cost Analysis</h6>
+                            <table class="table table-sm">
+                                <tbody id="cost-breakdown">
+                                    <tr><td colspan="2" class="text-center">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Efficiency Metrics</h6>
+                            <table class="table table-sm">
+                                <tbody id="efficiency-breakdown">
+                                    <tr><td colspan="2" class="text-center">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mt-4 mb-4">
+        <div class="col-12 text-center">
+            <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <button class="btn btn-success" onclick="exportKPIs()">
+                <i class="fas fa-download"></i> Export KPIs
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+async function loadKPIs() {
+    try {
+        const response = await fetch('/analytics/api/calculate-kpis');
+        const kpis = await response.json();
+        
+        // Update KPI displays
+        document.getElementById('kpi-cost-per-km').textContent = '$' + kpis.cost_per_km.toFixed(2);
+        document.getElementById('kpi-fuel-efficiency').textContent = kpis.avg_fuel_efficiency.toFixed(1) + ' km/L';
+        document.getElementById('kpi-downtime').textContent = kpis.vehicle_downtime_pct.toFixed(1) + '%';
+        document.getElementById('kpi-utilization').textContent = kpis.utilization_rate.toFixed(1) + '%';
+        
+        // Update progress bars
+        const costPct = Math.min((kpis.cost_per_km / 0.5) * 100, 100);
+        document.getElementById('kpi-cost-bar').style.width = costPct + '%';
+        
+        const efficiencyPct = Math.min((kpis.avg_fuel_efficiency / 20) * 100, 100);
+        document.getElementById('kpi-efficiency-bar').style.width = efficiencyPct + '%';
+        
+        document.getElementById('kpi-downtime-bar').style.width = kpis.vehicle_downtime_pct + '%';
+        document.getElementById('kpi-utilization-bar').style.width = kpis.utilization_rate + '%';
+        
+        // Load detailed breakdown
+        loadCostBreakdown();
+        loadEfficiencyBreakdown();
+        
+    } catch (error) {
+        console.error('Error loading KPIs:', error);
+    }
+}
+
+function loadCostBreakdown() {
+    const tbody = document.getElementById('cost-breakdown');
+    tbody.innerHTML = `
+        <tr><td>Total Fuel Cost (30d)</td><td class="text-end"><strong>$0.00</strong></td></tr>
+        <tr><td>Total Maintenance Cost (30d)</td><td class="text-end"><strong>$0.00</strong></td></tr>
+        <tr><td>Total Distance (30d)</td><td class="text-end"><strong>0 km</strong></td></tr>
+        <tr class="table-primary"><td><strong>Cost per KM</strong></td><td class="text-end"><strong>$0.00</strong></td></tr>
+    `;
+}
+
+function loadEfficiencyBreakdown() {
+    const tbody = document.getElementById('efficiency-breakdown');
+    tbody.innerHTML = `
+        <tr><td>Avg Fuel Price</td><td class="text-end"><strong>$0.00/L</strong></td></tr>
+        <tr><td>Total Fuel Consumed (90d)</td><td class="text-end"><strong>0 L</strong></td></tr>
+        <tr><td>Avg Efficiency</td><td class="text-end"><strong>0.0 km/L</strong></td></tr>
+        <tr class="table-success"><td><strong>Best Vehicle Efficiency</strong></td><td class="text-end"><strong>0.0 km/L</strong></td></tr>
+    `;
+}
+
+function exportKPIs() {
+    // Create simple export of current KPIs
+    const exportData = {
+        timestamp: new Date().toISOString(),
+        cost_per_km: document.getElementById('kpi-cost-per-km').textContent,
+        fuel_efficiency: document.getElementById('kpi-fuel-efficiency').textContent,
+        vehicle_downtime: document.getElementById('kpi-downtime').textContent,
+        utilization_rate: document.getElementById('kpi-utilization').textContent
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `kpis_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadKPIs();
+});
+</script>
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-body i {
+    opacity: 0.8;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+</style>
+{% endblock %}

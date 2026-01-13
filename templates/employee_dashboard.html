@@ -35,6 +35,8 @@
                                     <h5 class="card-title">Quick Actions</h5>
                                     <hr>
                                     <div class="d-grid gap-2">
+                                        <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-outline-primary"><i class="fas fa-chart-line"></i> Analytics Dashboard</a>
+                                        <a href="{{ url_for('analytics.report_builder') }}" class="btn btn-outline-info"><i class="fas fa-file-alt"></i> Custom Reports</a>
                                         <a href="{{ url_for('create_service_requisition') }}" class="btn btn-outline-warning">📄 Create Service Requisition</a>
                                         <a href="{{ url_for('add_vehicle') }}" class="btn btn-outline-success">➕ Add Vehicle</a>
                                         <a href="{{ url_for('assign_vehicle') }}" class="btn btn-outline-primary">🔗 Assign Vehicle</a>

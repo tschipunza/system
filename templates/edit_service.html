@@ -19,20 +19,48 @@
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="service_type" class="form-label">Service Type *</label>
+                                <label for="service_type" class="form-label">Service Classification *</label>
                                 <select class="form-select" id="service_type" name="service_type" required>
-                                    <option value="Oil Change" {% if service.service_type == 'Oil Change' %}selected{% endif %}>Oil Change</option>
-                                    <option value="Tire Rotation" {% if service.service_type == 'Tire Rotation' %}selected{% endif %}>Tire Rotation</option>
-                                    <option value="Brake Service" {% if service.service_type == 'Brake Service' %}selected{% endif %}>Brake Service</option>
-                                    <option value="Engine Tune-up" {% if service.service_type == 'Engine Tune-up' %}selected{% endif %}>Engine Tune-up</option>
-                                    <option value="Transmission Service" {% if service.service_type == 'Transmission Service' %}selected{% endif %}>Transmission Service</option>
-                                    <option value="Battery Replacement" {% if service.service_type == 'Battery Replacement' %}selected{% endif %}>Battery Replacement</option>
-                                    <option value="Air Filter Replacement" {% if service.service_type == 'Air Filter Replacement' %}selected{% endif %}>Air Filter Replacement</option>
-                                    <option value="Wheel Alignment" {% if service.service_type == 'Wheel Alignment' %}selected{% endif %}>Wheel Alignment</option>
-                                    <option value="Inspection" {% if service.service_type == 'Inspection' %}selected{% endif %}>Inspection</option>
-                                    <option value="Repair" {% if service.service_type == 'Repair' %}selected{% endif %}>Repair</option>
-                                    <option value="Other" {% if service.service_type == 'Other' %}selected{% endif %}>Other</option>
+                                    <optgroup label="🔧 Scheduled Services">
+                                        <option value="A Service (10,000 km)" {% if service.service_type == 'A Service (10,000 km)' %}selected{% endif %}>A Service (10,000 km) - Oil Change & Basic Inspection</option>
+                                        <option value="B Service (20,000 km)" {% if service.service_type == 'B Service (20,000 km)' %}selected{% endif %}>B Service (20,000 km) - A Service + Filters & Rotation</option>
+                                        <option value="C Service (30,000 km)" {% if service.service_type == 'C Service (30,000 km)' %}selected{% endif %}>C Service (30,000 km) - B Service + Plugs & Brakes</option>
+                                        <option value="D Service (40,000 km)" {% if service.service_type == 'D Service (40,000 km)' %}selected{% endif %}>D Service (40,000 km) - Full Service + Diagnostics</option>
+                                    </optgroup>
+                                    <optgroup label="🛠️ Component Services">
+                                        <option value="Oil Change" {% if service.service_type == 'Oil Change' %}selected{% endif %}>Oil Change</option>
+                                        <option value="Tire Rotation" {% if service.service_type == 'Tire Rotation' %}selected{% endif %}>Tire Rotation</option>
+                                        <option value="Brake Service" {% if service.service_type == 'Brake Service' %}selected{% endif %}>Brake Service</option>
+                                        <option value="Engine Tune-up" {% if service.service_type == 'Engine Tune-up' %}selected{% endif %}>Engine Tune-up</option>
+                                        <option value="Transmission Service" {% if service.service_type == 'Transmission Service' %}selected{% endif %}>Transmission Service</option>
+                                        <option value="Battery Replacement" {% if service.service_type == 'Battery Replacement' %}selected{% endif %}>Battery Replacement</option>
+                                        <option value="Air Filter Replacement" {% if service.service_type == 'Air Filter Replacement' %}selected{% endif %}>Air Filter Replacement</option>
+                                        <option value="Wheel Alignment" {% if service.service_type == 'Wheel Alignment' %}selected{% endif %}>Wheel Alignment</option>
+                                        <option value="Suspension Service" {% if service.service_type == 'Suspension Service' %}selected{% endif %}>Suspension Service</option>
+                                        <option value="Cooling System Service" {% if service.service_type == 'Cooling System Service' %}selected{% endif %}>Cooling System Service</option>
+                                    </optgroup>
+                                    <optgroup label="🔍 Inspection & Diagnostics">
+                                        <option value="Safety Inspection" {% if service.service_type == 'Safety Inspection' %}selected{% endif %}>Safety Inspection</option>
+                                        <option value="Diagnostic Scan" {% if service.service_type == 'Diagnostic Scan' %}selected{% endif %}>Diagnostic Scan</option>
+                                        <option value="Pre-Purchase Inspection" {% if service.service_type == 'Pre-Purchase Inspection' %}selected{% endif %}>Pre-Purchase Inspection</option>
+                                    </optgroup>
+                                    <optgroup label="🔨 Repairs">
+                                        <option value="Engine Repair" {% if service.service_type == 'Engine Repair' %}selected{% endif %}>Engine Repair</option>
+                                        <option value="Transmission Repair" {% if service.service_type == 'Transmission Repair' %}selected{% endif %}>Transmission Repair</option>
+                                        <option value="Electrical Repair" {% if service.service_type == 'Electrical Repair' %}selected{% endif %}>Electrical Repair</option>
+                                        <option value="Body Repair" {% if service.service_type == 'Body Repair' %}selected{% endif %}>Body Repair</option>
+                                        <option value="General Repair" {% if service.service_type == 'General Repair' %}selected{% endif %}>General Repair</option>
+                                    </optgroup>
+                                    <optgroup label="📋 Other">
+                                        <option value="Recall Service" {% if service.service_type == 'Recall Service' %}selected{% endif %}>Recall Service</option>
+                                        <option value="Warranty Work" {% if service.service_type == 'Warranty Work' %}selected{% endif %}>Warranty Work</option>
+                                        <option value="Emergency Repair" {% if service.service_type == 'Emergency Repair' %}selected{% endif %}>Emergency Repair</option>
+                                        <option value="Inspection" {% if service.service_type == 'Inspection' %}selected{% endif %}>Inspection</option>
+                                        <option value="Repair" {% if service.service_type == 'Repair' %}selected{% endif %}>Repair</option>
+                                        <option value="Other" {% if service.service_type == 'Other' %}selected{% endif %}>Other</option>
+                                    </optgroup>
                                 </select>
+                                <small id="service_info" class="form-text text-muted mt-1"></small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="status" class="form-label">Status *</label>
@@ -123,4 +151,39 @@
         </div>
     </div>
 </div>
+
+<script>
+// Service type details
+const serviceDetails = {
+    'A Service (10,000 km)': '✓ Oil change ✓ Basic inspection ✓ Fluid level check ✓ Tire pressure',
+    'B Service (20,000 km)': '✓ A Service tasks ✓ Air filter ✓ Cabin filter ✓ Tire rotation ✓ Brake inspection',
+    'C Service (30,000 km)': '✓ B Service tasks ✓ Spark plugs ✓ Brake fluid ✓ Fuel filter ✓ Full brake check',
+    'D Service (40,000 km)': '✓ C Service tasks ✓ Transmission service ✓ Coolant flush ✓ Suspension check ✓ Full diagnostics'
+};
+
+// Show service details when service type changes
+document.getElementById('service_type').addEventListener('change', function() {
+    const serviceInfo = document.getElementById('service_info');
+    const selectedService = this.value;
+    
+    if (serviceDetails[selectedService]) {
+        serviceInfo.innerHTML = '<i class="fas fa-info-circle"></i> ' + serviceDetails[selectedService];
+        serviceInfo.style.color = '#0d6efd';
+    } else {
+        serviceInfo.innerHTML = '';
+    }
+});
+
+// Trigger on page load if A/B/C/D service is selected
+window.addEventListener('DOMContentLoaded', function() {
+    const serviceType = document.getElementById('service_type');
+    const serviceInfo = document.getElementById('service_info');
+    const selectedService = serviceType.value;
+    
+    if (serviceDetails[selectedService]) {
+        serviceInfo.innerHTML = '<i class="fas fa-info-circle"></i> ' + serviceDetails[selectedService];
+        serviceInfo.style.color = '#0d6efd';
+    }
+});
+</script>
 {% endblock %}

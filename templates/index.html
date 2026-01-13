@@ -1,38 +1,390 @@
 {% extends "base.html" %}
 
-{% block title %}Home - Flask Auth App{% endblock %}
+{% block title %}Home - Fleet Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 120px 0 100px;
+        margin-top: -24px;
+        margin-left: calc(-1 * var(--sidebar-width, 0px));
+        margin-right: -24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    body.no-sidebar .hero-section {
+        margin-left: -24px;
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.4;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-section h1 {
+        font-size: 3.5rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 20px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .hero-section p {
+        font-size: 1.3rem;
+        color: rgba(255,255,255,0.95);
+        margin-bottom: 30px;
+    }
+
+    .hero-stats {
+        display: flex;
+        justify-content: center;
+        gap: 60px;
+        margin-top: 50px;
+    }
+
+    .stat-item {
+        text-align: center;
+        color: white;
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .portal-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        height: 100%;
+    }
+
+    .portal-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+    }
+
+    .portal-card-header {
+        padding: 40px 30px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        position: relative;
+    }
+
+    .portal-card-header.employee {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .portal-icon {
+        width: 80px;
+        height: 80px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 2.5rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .portal-card-header h2 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .portal-card-body {
+        padding: 40px 30px;
+        text-align: center;
+    }
+
+    .portal-description {
+        color: #74788d;
+        font-size: 1.05rem;
+        margin-bottom: 30px;
+        line-height: 1.6;
+    }
+
+    .btn-portal {
+        padding: 14px 30px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .btn-portal-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-portal-primary:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-portal-secondary {
+        background: transparent;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+
+    .btn-portal-secondary:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+
+    .btn-portal-employee {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .btn-portal-employee:hover {
+        background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+    }
+
+    .btn-portal-employee-secondary {
+        background: transparent;
+        color: #f5576c;
+        border: 2px solid #f5576c;
+    }
+
+    .btn-portal-employee-secondary:hover {
+        background: #f5576c;
+        color: white;
+        border-color: #f5576c;
+    }
+
+    .features-section {
+        padding: 80px 0;
+        background: #f8f9fa;
+        margin-left: calc(-1 * var(--sidebar-width, 0px));
+        margin-right: -24px;
+    }
+
+    body.no-sidebar .features-section {
+        margin-left: -24px;
+    }
+
+    .feature-card {
+        background: white;
+        border-radius: 12px;
+        padding: 40px 30px;
+        text-align: center;
+        height: 100%;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .feature-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 25px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .feature-icon.purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .feature-icon.pink {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .feature-icon.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .feature-icon.green {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .feature-icon.orange {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .feature-icon.teal {
+        background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+    }
+
+    .feature-card h3 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+        color: #2d3748;
+    }
+
+    .feature-card p {
+        color: #74788d;
+        font-size: 1rem;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .section-title {
+        text-align: center;
+        margin-bottom: 60px;
+    }
+
+    .section-title h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 15px;
+    }
+
+    .section-title p {
+        font-size: 1.1rem;
+        color: #74788d;
+    }
+
+    @media (max-width: 768px) {
+        .hero-section {
+            padding: 80px 0 60px;
+        }
+
+        .hero-section h1 {
+            font-size: 2.5rem;
+        }
+
+        .hero-stats {
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .portal-card {
+            margin-bottom: 30px;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="hero-section">
-    <div class="container text-center">
-        <h1 class="display-4 mb-4">Welcome System</h1>
-        <p class="lead mb-5">Secure authentication system for Users and Employees</p>
+    <div class="container hero-content">
+        <div class="text-center">
+            <h1>Fleet Management System</h1>
+            <p>Comprehensive vehicle tracking, fuel management, and maintenance solution</p>
+            
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number"><i class="fas fa-car"></i> 50+</span>
+                    <span class="stat-label">Vehicles Managed</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><i class="fas fa-gas-pump"></i> 1000+</span>
+                    <span class="stat-label">Fuel Records</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><i class="fas fa-tools"></i> 24/7</span>
+                    <span class="stat-label">Service Tracking</span>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="container my-5">
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body text-center p-5">
-                    <h2 class="card-title text-primary mb-4">User Portal</h2>
-                    <p class="card-text mb-4">Access the user portal to manage your account and personal information.</p>
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('user_login') }}" class="btn btn-primary btn-lg">User Login</a>
-                        <a href="{{ url_for('user_signup') }}" class="btn btn-outline-primary btn-lg">User Sign Up</a>
+<div class="container my-5 py-4">
+    <div class="section-title">
+        <h2>Choose Your Portal</h2>
+        <p>Select the appropriate portal to access your account</p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="portal-card">
+                <div class="portal-card-header">
+                    <div class="portal-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h2>User Portal</h2>
+                </div>
+                <div class="portal-card-body">
+                    <p class="portal-description">
+                        Access your personal dashboard to view assigned vehicles, fuel records, 
+                        and submit service requisitions.
+                    </p>
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('user_login') }}" class="btn btn-portal btn-portal-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>User Login
+                        </a>
+                        <a href="{{ url_for('user_signup') }}" class="btn btn-portal btn-portal-secondary">
+                            <i class="fas fa-user-plus me-2"></i>Create Account
+                        </a>
+                    </div>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">Existing company member? Login above</small>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body text-center p-5">
-                    <h2 class="card-title text-success mb-4">Employee Portal</h2>
-                    <p class="card-text mb-4">Employee access for managing work-related tasks and information.</p>
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('employee_login') }}" class="btn btn-success btn-lg">Employee Login</a>
-                        <a href="{{ url_for('employee_signup') }}" class="btn btn-outline-success btn-lg">Employee Sign Up</a>
+        <div class="col-lg-6">
+            <div class="portal-card">
+                <div class="portal-card-header employee">
+                    <div class="portal-icon">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <h2>Employee Portal</h2>
+                </div>
+                <div class="portal-card-body">
+                    <p class="portal-description">
+                        Manage fleet operations, track maintenance schedules, generate reports, 
+                        and oversee all vehicle activities.
+                    </p>
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('employee_login') }}" class="btn btn-portal btn-portal-employee">
+                            <i class="fas fa-sign-in-alt me-2"></i>Employee Login
+                        </a>
+                        <a href="{{ url_for('employee_signup') }}" class="btn btn-portal btn-portal-employee-secondary">
+                            <i class="fas fa-user-plus me-2"></i>Register Employee
+                        </a>
+                    </div>
+                    <div class="text-center mt-3">
+                        <small class="text-muted">Existing company member? Login above</small>
                     </div>
                 </div>
             </div>
@@ -40,28 +392,101 @@
     </div>
 </div>
 
-<div class="container my-5">
-    <div class="row">
-        <div class="col-md-4 text-center mb-4">
-            <div class="feature-icon bg-primary bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center fs-2 mb-3" style="width: 80px; height: 80px;">
-                🔒
+<!-- New Company Signup Section -->
+<div class="container my-5 py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card" style="border: 3px solid #667eea; border-radius: 15px; box-shadow: 0 10px 40px rgba(102,126,234,0.15);">
+                <div class="card-body text-center p-5">
+                    <i class="fas fa-building" style="font-size: 3rem; color: #667eea; margin-bottom: 20px;"></i>
+                    <h2 class="mb-3">New Company? Start Your Free Trial</h2>
+                    <p class="lead text-muted mb-4">
+                        Get your own dedicated fleet management system with 30 days free access.
+                        No credit card required.
+                    </p>
+                    <a href="{{ url_for('tenant.tenant_signup') }}" class="btn btn-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; font-size: 1.1rem; font-weight: 600; border-radius: 8px;">
+                        <i class="fas fa-rocket me-2"></i>Start Free Trial
+                    </a>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-check text-success me-2"></i>10 Vehicles
+                            <i class="fas fa-check text-success ms-3 me-2"></i>5 Users
+                            <i class="fas fa-check text-success ms-3 me-2"></i>All Features
+                        </small>
+                    </div>
+                </div>
             </div>
-            <h3>Secure</h3>
-            <p>Password hashing and secure session management</p>
         </div>
-        <div class="col-md-4 text-center mb-4">
-            <div class="feature-icon bg-success bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center fs-2 mb-3" style="width: 80px; height: 80px;">
-                👥
-            </div>
-            <h3>Dual Access</h3>
-            <p>Separate portals for users and employees</p>
+    </div>
+</div>
+
+<div class="features-section">
+    <div class="container">
+        <div class="section-title">
+            <h2>Powerful Features</h2>
+            <p>Everything you need to manage your fleet efficiently</p>
         </div>
-        <div class="col-md-4 text-center mb-4">
-            <div class="feature-icon bg-info bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center fs-2 mb-3" style="width: 80px; height: 80px;">
-                ⚡
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon purple">
+                        <i class="fas fa-car"></i>
+                    </div>
+                    <h3>Vehicle Management</h3>
+                    <p>Track and manage your entire fleet with detailed vehicle profiles, assignments, and real-time status updates.</p>
+                </div>
             </div>
-            <h3>Fast</h3>
-            <p>Built with Flask for optimal performance</p>
+
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon pink">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <h3>Fuel Tracking</h3>
+                    <p>Monitor fuel consumption, generate detailed reports, and identify exceptions to optimize fuel efficiency.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon blue">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <h3>Service Management</h3>
+                    <p>Schedule maintenance, track service history, and manage job cards to keep your fleet in top condition.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon green">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Advanced Reports</h3>
+                    <p>Generate comprehensive reports with custom date ranges, vehicle filters, and Excel export capabilities.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon orange">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <h3>Smart Notifications</h3>
+                    <p>Receive automatic alerts for upcoming service schedules, fuel exceptions, and important fleet events.</p>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon teal">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Secure & Reliable</h3>
+                    <p>Enterprise-grade security with role-based access control, data backups, and audit trails.</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>

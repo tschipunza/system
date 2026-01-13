@@ -40,7 +40,15 @@ def create_python_backup(filename):
             
             # Get all tables
             cursor.execute("SHOW TABLES")
-            tables = [row[f'Tables_in_{Config.MYSQL_DB}'] for row in cursor.fetchall()]
+            result = cursor.fetchall()
+            
+            # Handle the table list extraction (works with both dict and tuple results)
+            if result and isinstance(result[0], dict):
+                # Get the first key from the dictionary (it will be 'Tables_in_<database_name>')
+                table_key = list(result[0].keys())[0]
+                tables = [row[table_key] for row in result]
+            else:
+                tables = [row[0] for row in result]
             
             for table in tables:
                 # Get table structure

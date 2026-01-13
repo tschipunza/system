@@ -1,0 +1,509 @@
+/* 
+ * Analytics Mobile Responsive Styles
+ * Optimizes dashboard, reports, and charts for mobile devices
+ */
+
+/* ========================================
+   MOBILE-FIRST BASE STYLES
+   ======================================== */
+
+/* Ensure proper mobile rendering */
+@media screen and (max-width: 768px) {
+    
+    /* === CONTAINER & LAYOUT === */
+    .container-fluid {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    
+    /* === STAT CARDS === */
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    
+    .stat-card {
+        margin-bottom: 10px;
+        padding: 15px !important;
+    }
+    
+    .stat-card .number {
+        font-size: 24px !important;
+    }
+    
+    .stat-card .label {
+        font-size: 12px !important;
+    }
+    
+    /* === CHARTS === */
+    .chart-container {
+        height: 250px !important;
+        margin-bottom: 20px;
+    }
+    
+    .chart-card {
+        margin-bottom: 15px;
+        padding: 10px !important;
+    }
+    
+    .chart-card h5 {
+        font-size: 14px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    canvas {
+        max-height: 250px !important;
+    }
+    
+    /* === TABLES === */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    table {
+        font-size: 12px !important;
+    }
+    
+    table th,
+    table td {
+        padding: 6px 4px !important;
+        white-space: nowrap;
+    }
+    
+    /* Hide less important columns on mobile */
+    .table-mobile-hide {
+        display: none !important;
+    }
+    
+    /* === BUTTONS === */
+    .btn {
+        padding: 10px 15px !important;
+        font-size: 14px !important;
+        margin-bottom: 5px;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-direction: column !important;
+        width: 100% !important;
+    }
+    
+    .btn-group .btn {
+        width: 100% !important;
+        margin-bottom: 5px;
+        border-radius: 4px !important;
+    }
+    
+    /* === FORMS === */
+    .form-group {
+        margin-bottom: 10px !important;
+    }
+    
+    .form-label {
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .form-control,
+    .form-select {
+        font-size: 14px !important;
+        padding: 8px 10px !important;
+        height: auto !important;
+    }
+    
+    select[multiple] {
+        height: 120px !important;
+    }
+    
+    /* === CARDS === */
+    .card {
+        margin-bottom: 15px !important;
+    }
+    
+    .card-body {
+        padding: 12px !important;
+    }
+    
+    .card-header {
+        padding: 10px 12px !important;
+        font-size: 14px !important;
+    }
+    
+    /* === FILTER SECTIONS === */
+    .filter-row {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .filter-group {
+        width: 100% !important;
+        min-width: 100% !important;
+    }
+    
+    .filter-actions {
+        width: 100% !important;
+        flex-direction: column !important;
+    }
+    
+    .filter-actions button {
+        width: 100% !important;
+        margin-bottom: 5px;
+    }
+    
+    /* === NAVIGATION === */
+    .topbar {
+        padding: 10px 15px !important;
+    }
+    
+    .topbar h4 {
+        font-size: 16px !important;
+    }
+    
+    /* === PAGINATION === */
+    .pagination {
+        flex-wrap: wrap;
+        gap: 5px !important;
+        padding: 10px !important;
+    }
+    
+    .pagination button {
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+    }
+    
+    .pagination .page-info {
+        font-size: 12px !important;
+        width: 100%;
+        text-align: center;
+        margin-top: 5px;
+    }
+    
+    /* === REPORT BUILDER === */
+    .report-options {
+        padding: 10px !important;
+    }
+    
+    .report-filters {
+        padding: 10px !important;
+    }
+    
+    .date-inputs {
+        flex-direction: column !important;
+    }
+    
+    .date-inputs input {
+        width: 100% !important;
+        margin-bottom: 8px;
+    }
+    
+    /* === AUDIT TRAIL === */
+    .audit-filters {
+        padding: 12px !important;
+    }
+    
+    .summary-cards {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
+    }
+    
+    .summary-card {
+        padding: 12px !important;
+    }
+    
+    .summary-card .number {
+        font-size: 20px !important;
+    }
+    
+    .summary-card .label {
+        font-size: 11px !important;
+    }
+    
+    /* === SCHEDULED REPORTS === */
+    .scheduled-report-card {
+        padding: 12px !important;
+        margin-bottom: 10px;
+    }
+    
+    .scheduled-report-actions {
+        flex-direction: column !important;
+        gap: 5px !important;
+    }
+    
+    .scheduled-report-actions button {
+        width: 100% !important;
+    }
+    
+    /* === TOOLTIPS & BADGES === */
+    .badge {
+        font-size: 10px !important;
+        padding: 3px 6px !important;
+    }
+    
+    /* === MODALS === */
+    .modal-dialog {
+        margin: 10px !important;
+        max-width: calc(100% - 20px) !important;
+    }
+    
+    .modal-body {
+        padding: 15px !important;
+    }
+    
+    /* === ALERTS === */
+    .alert {
+        padding: 10px !important;
+        font-size: 13px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    /* === HEADINGS === */
+    h2 {
+        font-size: 20px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    h3 {
+        font-size: 18px !important;
+    }
+    
+    h4 {
+        font-size: 16px !important;
+    }
+    
+    h5 {
+        font-size: 14px !important;
+    }
+    
+    /* === SPACING === */
+    .mt-4 {
+        margin-top: 15px !important;
+    }
+    
+    .mb-4 {
+        margin-bottom: 15px !important;
+    }
+    
+    /* === EXPORT BUTTONS === */
+    .export-btn {
+        width: 100% !important;
+        margin-bottom: 10px;
+    }
+    
+    /* === ACTION BUTTONS === */
+    .d-flex.justify-content-between {
+        flex-direction: column !important;
+        gap: 10px;
+    }
+    
+    .d-flex.justify-content-between > * {
+        width: 100% !important;
+    }
+}
+
+/* ========================================
+   TABLET STYLES (768px - 1024px)
+   ======================================== */
+
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+    
+    /* === STAT CARDS === */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 15px !important;
+    }
+    
+    /* === CHARTS === */
+    .chart-container {
+        height: 300px !important;
+    }
+    
+    /* === TABLES === */
+    table {
+        font-size: 13px !important;
+    }
+    
+    table th,
+    table td {
+        padding: 8px 6px !important;
+    }
+    
+    /* === SUMMARY CARDS === */
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+    
+    /* === BUTTONS === */
+    .btn-group {
+        display: flex;
+        flex-direction: row !important;
+    }
+    
+    .btn-group .btn {
+        width: auto !important;
+    }
+}
+
+/* ========================================
+   LARGE MOBILE (576px - 768px)
+   ======================================== */
+
+@media screen and (min-width: 576px) and (max-width: 768px) {
+    
+    /* === STAT CARDS === */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    /* === SUMMARY CARDS === */
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    /* === FILTER ACTIONS === */
+    .filter-actions {
+        flex-direction: row !important;
+    }
+    
+    .filter-actions button {
+        width: auto !important;
+    }
+}
+
+/* ========================================
+   TOUCH-FRIENDLY ENHANCEMENTS
+   ======================================== */
+
+@media (hover: none) and (pointer: coarse) {
+    
+    /* Larger touch targets */
+    button,
+    .btn,
+    a.menu-link,
+    .clickable {
+        min-height: 44px !important;
+        min-width: 44px !important;
+    }
+    
+    /* Better spacing for touch */
+    .menu-link {
+        padding: 12px 15px !important;
+    }
+    
+    /* Prevent text selection issues */
+    .stat-card,
+    .chart-card,
+    .card-header {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    
+    /* Smooth scrolling */
+    * {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ========================================
+   LANDSCAPE MODE ADJUSTMENTS
+   ======================================== */
+
+@media screen and (max-width: 896px) and (orientation: landscape) {
+    
+    /* Reduce vertical spacing in landscape */
+    .chart-container {
+        height: 200px !important;
+    }
+    
+    .stat-card {
+        padding: 10px !important;
+    }
+    
+    .card-body {
+        padding: 10px !important;
+    }
+    
+    /* Horizontal scroll for tables */
+    .table-responsive {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    
+    /* Hide navigation and actions */
+    .sidebar,
+    .topbar,
+    .btn,
+    .export-btn,
+    .filter-actions {
+        display: none !important;
+    }
+    
+    /* Full width for content */
+    .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    
+    /* Optimize for print */
+    .chart-container {
+        height: auto !important;
+        page-break-inside: avoid;
+    }
+    
+    .stat-card,
+    .card {
+        page-break-inside: avoid;
+        border: 1px solid #ddd !important;
+    }
+    
+    /* Black and white optimization */
+    * {
+        color: #000 !important;
+        background: #fff !important;
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY ENHANCEMENTS
+   ======================================== */
+
+/* Focus indicators for keyboard navigation */
+button:focus,
+a:focus,
+input:focus,
+select:focus {
+    outline: 2px solid #007bff !important;
+    outline-offset: 2px !important;
+}
+
+/* Better contrast for readability */
+@media (prefers-contrast: high) {
+    .stat-card,
+    .chart-card,
+    .card {
+        border: 2px solid #000 !important;
+    }
+    
+    .btn {
+        border: 2px solid currentColor !important;
+    }
+}
+
+/* Reduced motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

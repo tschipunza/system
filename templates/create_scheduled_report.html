@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Create Scheduled Report - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics-mobile.css') }}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<style>
+    .form-section {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .section-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #007bff;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-label {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+    }
+    .form-control, .form-select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+    .help-text {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    .checkbox-group {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+    }
+    .checkbox-item {
+        padding: 5px 0;
+    }
+    .checkbox-item input {
+        margin-right: 8px;
+    }
+    .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 30px;
+    }
+    .btn {
+        padding: 12px 24px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn:hover {
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Create Scheduled Report</h2>
+        <a href="{{ url_for('analytics.scheduled_reports_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Reports
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('analytics.create_scheduled_report') }}">
+        <!-- Basic Information -->
+        <div class="form-section">
+            <div class="section-title">Basic Information</div>
+            
+            <div class="form-group">
+                <label class="form-label" for="report_name">Report Name *</label>
+                <input type="text" class="form-control" id="report_name" name="report_name" required
+                       placeholder="e.g., Weekly Fuel Summary">
+                <div class="help-text">Give your report a descriptive name</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="report_type">Report Type *</label>
+                <select class="form-select" id="report_type" name="report_type" required>
+                    <option value="">Select report type...</option>
+                    <option value="fuel_analysis">Fuel Analysis</option>
+                    <option value="maintenance_costs">Maintenance Costs</option>
+                    <option value="vehicle_assignments">Vehicle Assignments</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="frequency">Frequency *</label>
+                <select class="form-select" id="frequency" name="frequency" required>
+                    <option value="">Select frequency...</option>
+                    <option value="daily">Daily (8:00 AM)</option>
+                    <option value="weekly">Weekly (Monday 8:00 AM)</option>
+                    <option value="monthly">Monthly (1st of month 8:00 AM)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="format">Report Format *</label>
+                <select class="form-select" id="format" name="format" required>
+                    <option value="excel">Excel (XLSX)</option>
+                    <option value="pdf">PDF</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Recipients -->
+        <div class="form-section">
+            <div class="section-title">Email Recipients</div>
+            
+            <div class="form-group">
+                <label class="form-label" for="recipients">Email Addresses *</label>
+                <textarea class="form-control" id="recipients" name="recipients" rows="3" required
+                          placeholder="email1@example.com, email2@example.com"></textarea>
+                <div class="help-text">Enter email addresses separated by commas</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="form-section">
+            <div class="section-title">Filters (Optional)</div>
+            
+            <div class="form-group">
+                <label class="form-label">Vehicles</label>
+                <div class="checkbox-group">
+                    {% if vehicles %}
+                        {% for vehicle in vehicles %}
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="vehicle_{{ vehicle.id }}" 
+                                   name="vehicle_ids" value="{{ vehicle.id }}">
+                            <label for="vehicle_{{ vehicle.id }}">
+                                {{ vehicle.make }} {{ vehicle.model }} - {{ vehicle.registration_number }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="help-text">No vehicles available</div>
+                    {% endif %}
+                </div>
+                <div class="help-text">Leave unchecked to include all vehicles</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Employees</label>
+                <div class="checkbox-group">
+                    {% if employees %}
+                        {% for employee in employees %}
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="employee_{{ employee.id }}" 
+                                   name="employee_ids" value="{{ employee.id }}">
+                            <label for="employee_{{ employee.id }}">
+                                {{ employee.full_name }} ({{ employee.employee_id }})
+                            </label>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="help-text">No employees available</div>
+                    {% endif %}
+                </div>
+                <div class="help-text">Leave unchecked to include all employees</div>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Create Scheduled Report
+            </button>
+            <a href="{{ url_for('analytics.scheduled_reports_list') }}" class="btn btn-secondary">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

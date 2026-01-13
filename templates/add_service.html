@@ -45,21 +45,50 @@
                                 <small id="vehicle_info" class="text-muted"></small>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="service_type" class="form-label">Service Type *</label>
+                                <label for="service_type" class="form-label">Service Classification *</label>
                                 <select class="form-select" id="service_type" name="service_type" required>
-                                    <option value="">Select service type</option>
-                                    <option value="Oil Change">Oil Change</option>
-                                    <option value="Tire Rotation">Tire Rotation</option>
-                                    <option value="Brake Service">Brake Service</option>
-                                    <option value="Engine Tune-up">Engine Tune-up</option>
-                                    <option value="Transmission Service">Transmission Service</option>
-                                    <option value="Battery Replacement">Battery Replacement</option>
-                                    <option value="Air Filter Replacement">Air Filter Replacement</option>
-                                    <option value="Wheel Alignment">Wheel Alignment</option>
-                                    <option value="Inspection">Inspection</option>
-                                    <option value="Repair">Repair</option>
-                                    <option value="Other">Other</option>
+                                    <option value="">Select service classification</option>
+                                    <optgroup label="🔧 Scheduled Services">
+                                        <option value="A Service (10,000 km)">A Service (10,000 km) - Oil Change & Basic Inspection</option>
+                                        <option value="B Service (20,000 km)">B Service (20,000 km) - A Service + Filters & Rotation</option>
+                                        <option value="C Service (30,000 km)">C Service (30,000 km) - B Service + Plugs & Brakes</option>
+                                        <option value="D Service (40,000 km)">D Service (40,000 km) - Full Service + Diagnostics</option>
+                                    </optgroup>
+                                    <optgroup label="🛠️ Component Services">
+                                        <option value="Oil Change">Oil Change</option>
+                                        <option value="Tire Rotation">Tire Rotation</option>
+                                        <option value="Brake Service">Brake Service</option>
+                                        <option value="Engine Tune-up">Engine Tune-up</option>
+                                        <option value="Transmission Service">Transmission Service</option>
+                                        <option value="Battery Replacement">Battery Replacement</option>
+                                        <option value="Air Filter Replacement">Air Filter Replacement</option>
+                                        <option value="Wheel Alignment">Wheel Alignment</option>
+                                        <option value="Suspension Service">Suspension Service</option>
+                                        <option value="Cooling System Service">Cooling System Service</option>
+                                    </optgroup>
+                                    <optgroup label="🔍 Inspection & Diagnostics">
+                                        <option value="Safety Inspection">Safety Inspection</option>
+                                        <option value="Diagnostic Scan">Diagnostic Scan</option>
+                                        <option value="Pre-Purchase Inspection">Pre-Purchase Inspection</option>
+                                    </optgroup>
+                                    <optgroup label="🔨 Repairs">
+                                        <option value="Engine Repair">Engine Repair</option>
+                                        <option value="Transmission Repair">Transmission Repair</option>
+                                        <option value="Electrical Repair">Electrical Repair</option>
+                                        <option value="Body Repair">Body Repair</option>
+                                        <option value="General Repair">General Repair</option>
+                                    </optgroup>
+                                    <optgroup label="📋 Other">
+                                        <option value="Recall Service">Recall Service</option>
+                                        <option value="Warranty Work">Warranty Work</option>
+                                        <option value="Emergency Repair">Emergency Repair</option>
+                                        <option value="Other">Other</option>
+                                    </optgroup>
                                 </select>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    <span id="service_info">Select a service to see details</span>
+                                </small>
                             </div>
                         </div>
 
@@ -162,6 +191,14 @@
     // Set today's date as default
     document.getElementById('service_date').valueAsDate = new Date();
     
+    // Service details information
+    const serviceDetails = {
+        'A Service (10,000 km)': '✓ Engine oil & filter change ✓ Safety inspection ✓ Fluid level checks',
+        'B Service (20,000 km)': '✓ All A Service tasks ✓ Air & cabin filter replacement ✓ Tire rotation ✓ Battery check',
+        'C Service (30,000 km)': '✓ All A & B Service tasks ✓ Spark plugs ✓ Brake inspection ✓ Transmission fluid ✓ Suspension check',
+        'D Service (40,000 km)': '✓ All A, B & C Service tasks ✓ Timing belt/chain ✓ Full diagnostic ✓ Cooling system flush ✓ Comprehensive health check'
+    };
+    
     // Show vehicle info when selected
     document.getElementById('vehicle_id').addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
@@ -178,6 +215,20 @@
             info.classList.add('text-info');
         } else {
             info.textContent = '';
+        }
+    });
+    
+    // Show service details when service type is selected
+    document.getElementById('service_type').addEventListener('change', function() {
+        const serviceInfo = document.getElementById('service_info');
+        const selectedValue = this.value;
+        
+        if (serviceDetails[selectedValue]) {
+            serviceInfo.innerHTML = '<strong>' + serviceDetails[selectedValue] + '</strong>';
+            serviceInfo.className = 'form-text text-success';
+        } else {
+            serviceInfo.innerHTML = '<i class="fas fa-info-circle"></i> Select a service to see details';
+            serviceInfo.className = 'form-text text-muted';
         }
     });
 </script>

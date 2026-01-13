@@ -1,0 +1,421 @@
+{% extends 'base.html' %}
+
+{% block title %}Custom Report Builder - Fleet Manager{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics-mobile.css') }}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-file-alt"></i> Custom Report Builder
+            </h2>
+        </div>
+    </div>
+
+    <!-- Report Configuration -->
+    <div class="row">
+        <div class="col-lg-3 col-md-12 mb-3">
+            <div class="card report-options">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> Report Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form id="reportForm">
+                        <div class="mb-3">
+                            <label class="form-label">Report Type</label>
+                            <select class="form-select" id="reportType" required>
+                                <option value="">Select Type...</option>
+                                <option value="fuel_analysis">Fuel Analysis</option>
+                                <option value="maintenance_costs">Maintenance Costs</option>
+                                <option value="vehicle_assignments">Vehicle Assignments</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Date Range</label>
+                            <input type="date" class="form-control mb-2" id="startDate" required>
+                            <input type="date" class="form-control" id="endDate" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Vehicles (Optional)</label>
+                            <select class="form-select" id="vehicleFilter" multiple size="5">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <small class="text-muted">Hold Ctrl to select multiple</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Employees (Optional)</label>
+                            <select class="form-select" id="employeeFilter" multiple size="5">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <small class="text-muted">Hold Ctrl to select multiple</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mb-2">
+                            <i class="fas fa-play"></i> Generate Report
+                        </button>
+
+                        <div class="btn-group w-100" role="group">
+                            {% if can_export_excel %}
+                            <button type="button" class="btn btn-success" id="exportExcelBtn" disabled>
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            {% endif %}
+                            {% if can_export_pdf %}
+                            <button type="button" class="btn btn-danger" id="exportPdfBtn" disabled>
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card mt-3" id="quickStatsCard" style="display: none;">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-chart-pie"></i> Quick Stats</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total Records:</span>
+                        <strong id="statTotalRecords">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2" id="statTotalCost" style="display: none;">
+                        <span>Total Cost:</span>
+                        <strong id="statTotalCostValue">$0.00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" id="statAverage" style="display: none;">
+                        <span>Average:</span>
+                        <strong id="statAverageValue">$0.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            <!-- Results Area -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-table"></i> Report Results</h5>
+                    <div id="resultCount" class="badge bg-light text-dark"></div>
+                </div>
+                <div class="card-body">
+                    <div id="reportResults">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                            <p>Configure your report settings and click "Generate Report" to view results.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentReportData = null;
+let currentReportTitle = '';
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default dates (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+    
+    // Load vehicles and employees
+    loadVehicles();
+    loadEmployees();
+    
+    // Form submission
+    document.getElementById('reportForm').addEventListener('submit', generateReport);
+    
+    // Export buttons
+    document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+    document.getElementById('exportPdfBtn').addEventListener('click', exportToPdf);
+});
+
+async function loadVehicles() {
+    try {
+        const response = await fetch('/api/vehicles'); // Assuming this endpoint exists
+        if (response.ok) {
+            const vehicles = await response.json();
+            const select = document.getElementById('vehicleFilter');
+            select.innerHTML = vehicles.map(v => 
+                `<option value="${v.id}">${v.make} ${v.model} (${v.registration_number})</option>`
+            ).join('');
+        }
+    } catch (error) {
+        console.error('Error loading vehicles:', error);
+    }
+}
+
+async function loadEmployees() {
+    try {
+        const response = await fetch('/api/employees'); // Assuming this endpoint exists
+        if (response.ok) {
+            const employees = await response.json();
+            const select = document.getElementById('employeeFilter');
+            select.innerHTML = employees.map(e => 
+                `<option value="${e.id}">${e.username} (${e.email})</option>`
+            ).join('');
+        }
+    } catch (error) {
+        console.error('Error loading employees:', error);
+    }
+}
+
+async function generateReport(e) {
+    e.preventDefault();
+    
+    const reportType = document.getElementById('reportType').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    const vehicleSelect = document.getElementById('vehicleFilter');
+    const vehicleIds = Array.from(vehicleSelect.selectedOptions).map(opt => parseInt(opt.value));
+    
+    const employeeSelect = document.getElementById('employeeFilter');
+    const employeeIds = Array.from(employeeSelect.selectedOptions).map(opt => parseInt(opt.value));
+    
+    if (!reportType || !startDate || !endDate) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('reportResults').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Generating report...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch('/analytics/api/generate-custom-report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                report_type: reportType,
+                start_date: startDate,
+                end_date: endDate,
+                vehicle_ids: vehicleIds,
+                employee_ids: employeeIds
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentReportData = result.data;
+            currentReportTitle = reportType.replace('_', ' ').toUpperCase();
+            displayResults(result.data, reportType);
+            updateQuickStats(result.data, reportType);
+            
+            // Enable export buttons
+            document.getElementById('exportExcelBtn').disabled = false;
+            document.getElementById('exportPdfBtn').disabled = false;
+        } else {
+            throw new Error(result.error || 'Failed to generate report');
+        }
+    } catch (error) {
+        document.getElementById('reportResults').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Error: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function displayResults(data, reportType) {
+    const resultsDiv = document.getElementById('reportResults');
+    const countBadge = document.getElementById('resultCount');
+    
+    countBadge.textContent = `${data.length} records`;
+    
+    if (data.length === 0) {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No records found for the selected criteria.
+            </div>
+        `;
+        return;
+    }
+    
+    // Get column headers
+    const headers = Object.keys(data[0]);
+    
+    // Create table
+    let tableHTML = `
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        ${headers.map(h => `<th>${h.replace(/_/g, ' ').toUpperCase()}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    data.forEach(row => {
+        tableHTML += '<tr>';
+        headers.forEach(header => {
+            let value = row[header];
+            
+            // Format values
+            if (value === null || value === undefined) {
+                value = '-';
+            } else if (header.includes('cost') && typeof value === 'number') {
+                value = '$' + value.toFixed(2);
+            } else if (header.includes('date') || header.includes('time')) {
+                value = new Date(value).toLocaleString();
+            } else if (typeof value === 'number') {
+                value = value.toFixed(2);
+            }
+            
+            tableHTML += `<td>${value}</td>`;
+        });
+        tableHTML += '</tr>';
+    });
+    
+    tableHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    resultsDiv.innerHTML = tableHTML;
+}
+
+function updateQuickStats(data, reportType) {
+    const statsCard = document.getElementById('quickStatsCard');
+    const totalRecords = document.getElementById('statTotalRecords');
+    const totalCostDiv = document.getElementById('statTotalCost');
+    const totalCostValue = document.getElementById('statTotalCostValue');
+    const averageDiv = document.getElementById('statAverage');
+    const averageValue = document.getElementById('statAverageValue');
+    
+    statsCard.style.display = 'block';
+    totalRecords.textContent = data.length;
+    
+    // Calculate totals based on report type
+    if (reportType === 'fuel_analysis' && data.length > 0) {
+        const totalCost = data.reduce((sum, row) => sum + (parseFloat(row.fuel_cost) || 0), 0);
+        const avgCost = totalCost / data.length;
+        
+        totalCostDiv.style.display = 'flex';
+        totalCostValue.textContent = '$' + totalCost.toFixed(2);
+        
+        averageDiv.style.display = 'flex';
+        averageValue.textContent = '$' + avgCost.toFixed(2);
+    } else if (reportType === 'maintenance_costs' && data.length > 0) {
+        const totalCost = data.reduce((sum, row) => sum + (parseFloat(row.cost) || 0), 0);
+        const avgCost = totalCost / data.length;
+        
+        totalCostDiv.style.display = 'flex';
+        totalCostValue.textContent = '$' + totalCost.toFixed(2);
+        
+        averageDiv.style.display = 'flex';
+        averageValue.textContent = '$' + avgCost.toFixed(2);
+    } else {
+        totalCostDiv.style.display = 'none';
+        averageDiv.style.display = 'none';
+    }
+}
+
+async function exportToExcel() {
+    if (!currentReportData) return;
+    
+    try {
+        const response = await fetch('/analytics/api/export-excel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                data: currentReportData,
+                title: currentReportTitle
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = response.headers.get('content-disposition').split('filename=')[1];
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (error) {
+        alert('Error exporting to Excel: ' + error.message);
+    }
+}
+
+async function exportToPdf() {
+    if (!currentReportData) return;
+    
+    try {
+        const response = await fetch('/analytics/api/export-pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                data: currentReportData,
+                title: currentReportTitle
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = response.headers.get('content-disposition').split('filename=')[1];
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (error) {
+        alert('Error exporting to PDF: ' + error.message);
+    }
+}
+</script>
+
+<style>
+.form-select[multiple] {
+    height: auto !important;
+}
+
+.table-sm th, .table-sm td {
+    font-size: 0.875rem;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+</style>
+{% endblock %}
