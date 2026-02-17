@@ -573,8 +573,9 @@ def export_to_excel():
             worksheet = writer.sheets['Report']
             
             # Add title
+            from openpyxl.styles import Font
             worksheet['A1'] = report_title
-            worksheet['A1'].font = workbook.create_font(size=16, bold=True)
+            worksheet['A1'].font = Font(size=16, bold=True)
             
             # Add generation date
             worksheet['A2'] = f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
@@ -586,15 +587,20 @@ def export_to_excel():
             # Auto-adjust column widths
             for column in worksheet.columns:
                 max_length = 0
-                column = [cell for cell in column]
-                for cell in column:
+                column_cells = [cell for cell in column]
+                for cell in column_cells:
                     try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(cell.value)
-                    except:
+                        cell_value = '' if cell.value is None else str(cell.value)
+                        if len(cell_value) > max_length:
+                            max_length = len(cell_value)
+                    except Exception:
                         pass
                 adjusted_width = min(max_length + 2, 50)
-                worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+                try:
+                    worksheet.column_dimensions[column_cells[0].column_letter].width = adjusted_width
+                except Exception:
+                    # Skip if column letter cannot be determined
+                    pass
         
         output.seek(0)
         
