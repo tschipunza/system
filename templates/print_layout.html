@@ -330,8 +330,8 @@
         <div class="print-header">
             <div class="company-info">
                 <!-- Logo - Replace with your actual logo -->
-                {% if print_config and print_config.logo_path %}
-                <img src="{{ url_for('static', filename=print_config.logo_path) }}" alt="Company Logo" class="company-logo">
+                {% if print_config and print_config.get('logo_path') %}
+                <img src="{{ url_for('static', filename=print_config.get('logo_path')) }}" alt="Company Logo" class="company-logo">
                 {% elif company_logo %}
                 <img src="{{ company_logo }}" alt="Company Logo" class="company-logo">
                 {% else %}
@@ -341,29 +341,29 @@
                 {% endif %}
                 
                 <div class="company-name">
-                    {% if print_config and print_config.company_name %}
-                        {{ print_config.company_name }}
+                    {% if print_config and print_config.get('company_name') %}
+                        {{ print_config.get('company_name') }}
                     {% else %}
                         {% block company_name %}Your Fleet Management System{% endblock %}
                     {% endif %}
                 </div>
                 <div class="company-tagline">
-                    {% if print_config and print_config.company_tagline %}
-                        {{ print_config.company_tagline }}
+                    {% if print_config and print_config.get('company_tagline') %}
+                        {{ print_config.get('company_tagline') }}
                     {% else %}
                         {% block company_tagline %}Efficient Fleet Operations{% endblock %}
                     {% endif %}
                 </div>
                 <div class="company-details">
                     {% if print_config %}
-                        {% if print_config.company_address %}{{ print_config.company_address }}<br>{% endif %}
-                        {% if print_config.company_phone or print_config.company_email %}
-                            {% if print_config.company_phone %}Phone: {{ print_config.company_phone }}{% endif %}
-                            {% if print_config.company_phone and print_config.company_email %} | {% endif %}
-                            {% if print_config.company_email %}Email: {{ print_config.company_email }}{% endif %}
+                        {% if print_config.get('company_address') %}{{ print_config.get('company_address') }}<br>{% endif %}
+                        {% if print_config.get('company_phone') or print_config.get('company_email') %}
+                            {% if print_config.get('company_phone') %}Phone: {{ print_config.get('company_phone') }}{% endif %}
+                            {% if print_config.get('company_phone') and print_config.get('company_email') %} | {% endif %}
+                            {% if print_config.get('company_email') %}Email: {{ print_config.get('company_email') }}{% endif %}
                             <br>
                         {% endif %}
-                        {% if print_config.company_website %}Website: {{ print_config.company_website }}{% endif %}
+                        {% if print_config.get('company_website') %}Website: {{ print_config.get('company_website') }}{% endif %}
                     {% else %}
                         {% block company_details %}
                         123 Main Street, Business District<br>
@@ -394,8 +394,8 @@
         <!-- Footer -->
         <div class="print-footer">
             <div class="footer-left">
-                {% if print_config and print_config.footer_left %}
-                    {{ print_config.footer_left.replace('{username}', session.get('username', 'System User')) }}
+                {% if print_config and print_config.get('footer_left') %}
+                    {{ print_config.get('footer_left').replace('{username}', session.get('username', 'System User')) }}
                 {% else %}
                     {% block footer_left %}
                     {{ session.get('username', 'System User') }}
@@ -403,8 +403,8 @@
                 {% endif %}
             </div>
             <div class="footer-center">
-                {% if print_config and print_config.footer_center %}
-                    {{ print_config.footer_center.replace('{page}', '<span class="page-number"></span>')|safe }}
+                {% if print_config and print_config.get('footer_center') %}
+                    {{ print_config.get('footer_center').replace('{page}', '<span class="page-number"></span>')|safe }}
                 {% else %}
                     {% block footer_center %}
                     Page <span class="page-number"></span>
@@ -412,8 +412,8 @@
                 {% endif %}
             </div>
             <div class="footer-right">
-                {% if print_config and print_config.footer_right %}
-                    {{ print_config.footer_right }}
+                {% if print_config and print_config.get('footer_right') %}
+                    {{ print_config.get('footer_right') }}
                 {% else %}
                     {% block footer_right %}
                     Confidential Document

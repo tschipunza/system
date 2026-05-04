@@ -123,6 +123,7 @@
 <script>
 let currentReportData = null;
 let currentReportTitle = '';
+let currentReportType = '';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -223,6 +224,7 @@ async function generateReport(e) {
         
         if (result.success) {
             currentReportData = result.data;
+            currentReportType = reportType;
             currentReportTitle = reportType.replace('_', ' ').toUpperCase();
             displayResults(result.data, reportType);
             updateQuickStats(result.data, reportType);
@@ -258,7 +260,11 @@ function displayResults(data, reportType) {
     }
     
     // Get column headers
-    const headers = Object.keys(data[0]);
+    let headers = Object.keys(data[0]);
+    
+    if (reportType === 'maintenance_costs') {
+        headers = ['date', 'vehicle_number', 'make', 'model', 'description', 'service_type', 'cost'];
+    }
     
     // Create table
     let tableHTML = `
@@ -283,7 +289,12 @@ function displayResults(data, reportType) {
             } else if (header.includes('cost') && typeof value === 'number') {
                 value = '$' + value.toFixed(2);
             } else if (header.includes('date') || header.includes('time')) {
-                value = new Date(value).toLocaleString();
+                const parsedDate = new Date(value);
+                if (!isNaN(parsedDate.getTime())) {
+                    value = reportType === 'maintenance_costs'
+                        ? parsedDate.toLocaleDateString()
+                        : parsedDate.toLocaleString();
+                }
             } else if (typeof value === 'number') {
                 value = value.toFixed(2);
             }
@@ -349,7 +360,8 @@ async function exportToExcel() {
             },
             body: JSON.stringify({
                 data: currentReportData,
-                title: currentReportTitle
+                title: currentReportTitle,
+                report_type: currentReportType
             })
         });
         
@@ -382,7 +394,8 @@ async function exportToPdf() {
             },
             body: JSON.stringify({
                 data: currentReportData,
-                title: currentReportTitle
+                title: currentReportTitle,
+                report_type: currentReportType
             })
         });
         
@@ -412,6 +425,11 @@ async function exportToPdf() {
 
 .table-sm th, .table-sm td {
     font-size: 0.875rem;
+}
+
+.table td {
+    white-space: normal;
+    word-break: break-word;
 }
 
 .card {

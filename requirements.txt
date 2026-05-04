@@ -6,3 +6,5 @@ openpyxl
 APScheduler==3.11.1
 pandas>=2.0.0
 reportlab>=4.0.0
+matplotlib>=3.8.0
+twilio>=9.0.0

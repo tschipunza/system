@@ -1474,8 +1474,7 @@ def fuel_reports_print():
                     ddata['avg_consumption'] = (ddata['total_litres'] / ddata['total_km']) * 100
         
         # Get print settings
-        cursor.execute("SELECT * FROM print_settings LIMIT 1")
-        print_config = cursor.fetchone()
+        print_config = get_print_settings()
         
         return render_template('fuel_reports_print.html',
                              fuel_records=fuel_records,
@@ -2748,8 +2747,7 @@ def print_job_card(job_card_id):
         items = cursor.fetchall()
         
         # Get print settings
-        cursor.execute("SELECT * FROM print_settings LIMIT 1")
-        print_config = cursor.fetchone()
+        print_config = get_print_settings()
         
         return render_template('print_job_card.html', job_card=job_card, items=items, print_config=print_config)
     finally:
@@ -2999,8 +2997,7 @@ def service_notifications_print():
                 no_data.append(vehicle)
         
         # Get print settings
-        cursor.execute("SELECT * FROM print_settings LIMIT 1")
-        print_config = cursor.fetchone()
+        print_config = get_print_settings()
         
         return render_template('service_notifications_print.html', 
                              overdue=overdue, 
@@ -3012,9 +3009,27 @@ def service_notifications_print():
         cursor.close()
         conn.close()
 
-# Settings Routes
+def get_print_settings():
+    """Get print settings from database"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT setting_key, setting_value FROM print_settings")
+        settings_rows = cursor.fetchall()
+        
+        # Convert to dictionary
+        settings = {}
+        for row in settings_rows:
+            settings[row['setting_key']] = row['setting_value']
+        
+        return settings
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route('/settings')
 def settings():
+    """System settings page"""
     if 'employee_id' not in session:
         flash('Please log in to access this page.', 'warning')
         return redirect(url_for('employee_login'))
@@ -3228,8 +3243,15 @@ def print_settings():
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT * FROM print_settings LIMIT 1")
-        print_config = cursor.fetchone()
+        # Get all print settings as key-value pairs
+        cursor.execute("SELECT setting_key, setting_value FROM print_settings")
+        settings_rows = cursor.fetchall()
+        
+        # Convert to dictionary for template
+        print_config = {}
+        for row in settings_rows:
+            print_config[row['setting_key']] = row['setting_value']
+        
         return render_template('print_settings.html', print_config=print_config)
     finally:
         cursor.close()
@@ -3274,87 +3296,53 @@ def update_print_settings():
                     file.save(file_path)
                     logo_path = f"uploads/logos/{unique_filename}"
         
-        # Check if settings exist
-        cursor.execute("SELECT id, logo_path FROM print_settings LIMIT 1")
-        existing = cursor.fetchone()
-        
-        if existing:
-            # Update existing settings
-            if remove_logo:
+        # Get current logo path if removing logo
+        current_logo_path = None
+        if remove_logo:
+            cursor.execute("SELECT setting_value FROM print_settings WHERE setting_key = 'logo_path'")
+            current_logo = cursor.fetchone()
+            if current_logo and current_logo['setting_value']:
+                current_logo_path = current_logo['setting_value']
                 # Delete old logo file if exists
-                if existing['logo_path']:
-                    old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], '..', 'static', existing['logo_path'])
-                    if os.path.exists(old_logo_path):
-                        os.remove(old_logo_path)
-                
-                cursor.execute("""
-                    UPDATE print_settings SET
-                        company_name = %s,
-                        company_tagline = %s,
-                        company_address = %s,
-                        company_phone = %s,
-                        company_email = %s,
-                        company_website = %s,
-                        logo_path = NULL,
-                        footer_left = %s,
-                        footer_center = %s,
-                        footer_right = %s,
-                        updated_by = %s
-                    WHERE id = %s
-                """, (company_name, company_tagline, company_address, company_phone, company_email,
-                      company_website, footer_left, footer_center, footer_right,
-                      session['employee_id'], existing['id']))
-            elif logo_path:
-                # Delete old logo if new one is uploaded
-                if existing['logo_path']:
-                    old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], '..', 'static', existing['logo_path'])
-                    if os.path.exists(old_logo_path):
-                        os.remove(old_logo_path)
-                
-                cursor.execute("""
-                    UPDATE print_settings SET
-                        company_name = %s,
-                        company_tagline = %s,
-                        company_address = %s,
-                        company_phone = %s,
-                        company_email = %s,
-                        company_website = %s,
-                        logo_path = %s,
-                        footer_left = %s,
-                        footer_center = %s,
-                        footer_right = %s,
-                        updated_by = %s
-                    WHERE id = %s
-                """, (company_name, company_tagline, company_address, company_phone, company_email,
-                      company_website, logo_path, footer_left, footer_center, footer_right,
-                      session['employee_id'], existing['id']))
-            else:
-                cursor.execute("""
-                    UPDATE print_settings SET
-                        company_name = %s,
-                        company_tagline = %s,
-                        company_address = %s,
-                        company_phone = %s,
-                        company_email = %s,
-                        company_website = %s,
-                        footer_left = %s,
-                        footer_center = %s,
-                        footer_right = %s,
-                        updated_by = %s
-                    WHERE id = %s
-                """, (company_name, company_tagline, company_address, company_phone, company_email,
-                      company_website, footer_left, footer_center, footer_right,
-                      session['employee_id'], existing['id']))
-        else:
-            # Insert new settings
+                old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], '..', 'static', current_logo_path)
+                if os.path.exists(old_logo_path):
+                    os.remove(old_logo_path)
+        
+        # Define all settings to update
+        settings_to_update = {
+            'company_name': company_name,
+            'company_tagline': company_tagline,
+            'company_address': company_address,
+            'company_phone': company_phone,
+            'company_email': company_email,
+            'company_website': company_website,
+            'footer_left': footer_left,
+            'footer_center': footer_center,
+            'footer_right': footer_right
+        }
+        
+        # Handle logo path
+        if remove_logo:
+            settings_to_update['logo_path'] = None
+        elif logo_path:
+            # Delete old logo if new one is uploaded
+            cursor.execute("SELECT setting_value FROM print_settings WHERE setting_key = 'logo_path'")
+            old_logo = cursor.fetchone()
+            if old_logo and old_logo['setting_value']:
+                old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], '..', 'static', old_logo['setting_value'])
+                if os.path.exists(old_logo_path):
+                    os.remove(old_logo_path)
+            settings_to_update['logo_path'] = logo_path
+        
+        # Update each setting
+        for setting_key, setting_value in settings_to_update.items():
             cursor.execute("""
-                INSERT INTO print_settings 
-                (company_name, company_tagline, company_address, company_phone, company_email,
-                 company_website, logo_path, footer_left, footer_center, footer_right, updated_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (company_name, company_tagline, company_address, company_phone, company_email,
-                  company_website, logo_path, footer_left, footer_center, footer_right,
-                  session['employee_id']))
+                INSERT INTO print_settings (setting_key, setting_value, description)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                setting_value = VALUES(setting_value),
+                updated_at = CURRENT_TIMESTAMP
+            """, (setting_key, setting_value, f'Print setting for {setting_key.replace("_", " ")}'))
         
         conn.commit()
         flash('Print settings updated successfully!', 'success')

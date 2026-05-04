@@ -5,7 +5,7 @@ Analytics and Reporting Routes
 from flask import Blueprint, render_template, request, jsonify, send_file, session, flash, redirect, url_for, g
 from functools import wraps
 import pymysql
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import pandas as pd
 import io
 import os
@@ -28,19 +28,54 @@ from permission_manager import require_permission, permission_manager, get_permi
 
 analytics_bp = Blueprint('analytics', __name__, url_prefix='/analytics')
 
+def get_db_connection():
+    """Get database connection for current tenant or default database"""
+    if hasattr(g, 'tenant_db'):
+        from tenant_manager import TenantDatabaseManager
+        return TenantDatabaseManager.get_tenant_connection(g.tenant_db)
+    else:
+        return pymysql.connect(
+            host='localhost',
+            user='root',
+            password='ts#h3ph3rd',
+            database='flask_auth_db',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'employee_id' not in session:
+            # Check if it's an AJAX request
+            if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'error': 'Unauthorized - Please log in'}), 401
             flash('Please login to access this page.', 'warning')
             return redirect(url_for('employee_login'))
         return f(*args, **kwargs)
     return decorated_function
 
-def get_db_connection():
-    """Get database connection for current tenant"""
-    from app import get_db_connection as app_get_db
-    return app_get_db()
+def get_print_settings():
+    """Get print settings from database"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT setting_key, setting_value FROM print_settings")
+        settings_rows = cursor.fetchall()
+        
+        # Convert to dictionary
+        settings = {}
+        for row in settings_rows:
+            settings[row['setting_key']] = row['setting_value']
+        
+        return settings
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_company_name():
+    """Get company name from print settings"""
+    settings = get_print_settings()
+    return settings.get('company_name', 'Fleet Manager')
 
 @analytics_bp.context_processor
 def inject_permissions():
@@ -412,13 +447,23 @@ def report_builder():
 def generate_custom_report():
     """Generate custom report based on user filters"""
     start_time = time.time()
-    data = request.get_json()
     
-    report_type = data.get('report_type')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    vehicle_ids = data.get('vehicle_ids', [])
-    employee_ids = data.get('employee_ids', [])
+    try:
+        data = request.get_json()
+        if data is None:
+            return jsonify({'error': 'Invalid request - JSON body required'}), 400
+        
+        report_type = data.get('report_type')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if not all([report_type, start_date, end_date]):
+            return jsonify({'error': 'Missing required fields: report_type, start_date, end_date'}), 400
+        
+        vehicle_ids = data.get('vehicle_ids', [])
+        employee_ids = data.get('employee_ids', [])
+    except Exception as e:
+        return jsonify({'error': f'Invalid request format: {str(e)}'}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -456,11 +501,13 @@ def generate_custom_report():
         elif report_type == 'maintenance_costs':
             query = """
                 SELECT 
-                    sm.service_date as scheduled_date, sm.service_date as completion_date,
-                    v.make, v.model, v.vehicle_number,
-                    sm.service_type, sm.description,
-                    sm.cost, sm.status,
-                    sm.performed_by
+                    sm.service_date AS date,
+                    v.vehicle_number,
+                    v.make,
+                    v.model,
+                    sm.description,
+                    sm.service_type,
+                    sm.cost
                 FROM service_maintenance sm
                 JOIN vehicles v ON sm.vehicle_id = v.id
                 WHERE DATE(sm.service_date) BETWEEN %s AND %s
@@ -515,6 +562,8 @@ def generate_custom_report():
             for key, value in row.items():
                 if isinstance(value, datetime):
                     row[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+                elif isinstance(value, date):
+                    row[key] = value.strftime('%Y-%m-%d')
                 elif isinstance(value, (float, int)) and value is not None:
                     row[key] = float(value)
         
@@ -554,13 +603,23 @@ def export_to_excel():
     data = request.get_json()
     report_data = data.get('data', [])
     report_title = data.get('title', 'Fleet Manager Report')
+    report_type = data.get('report_type')
     
     if not report_data:
         return jsonify({'error': 'No data to export'}), 400
     
+    # Fallback: infer maintenance report type from field names if missing
+    if not report_type and report_data and 'service_type' in report_data[0] and 'description' in report_data[0]:
+        report_type = 'maintenance_costs'
+    
     try:
         # Create pandas DataFrame
         df = pd.DataFrame(report_data)
+        if report_type == 'maintenance_costs':
+            column_order = ['date', 'vehicle_number', 'make', 'model', 'description', 'service_type', 'cost']
+            ordered_columns = [col for col in column_order if col in df.columns]
+            if ordered_columns:
+                df = df[ordered_columns]
         
         # Create Excel writer
         output = io.BytesIO()
@@ -581,7 +640,7 @@ def export_to_excel():
             worksheet['A2'] = f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
             
             # Get tenant name from session
-            tenant_name = session.get('tenant_name', 'Fleet Manager')
+            tenant_name = get_company_name()
             worksheet['A3'] = f'Company: {tenant_name}'
             
             # Auto-adjust column widths
@@ -634,16 +693,42 @@ def export_to_pdf():
     data = request.get_json()
     report_data = data.get('data', [])
     report_title = data.get('title', 'Fleet Manager Report')
+    report_type = data.get('report_type')
     
     if not report_data:
         return jsonify({'error': 'No data to export'}), 400
     
+    # Fallback: if report_type is missing and the data looks like maintenance costs, infer it
+    if not report_type and report_data and 'service_type' in report_data[0] and 'description' in report_data[0]:
+        report_type = 'maintenance_costs'
+    
     try:
         # Create PDF
         output = io.BytesIO()
-        doc = SimpleDocTemplate(output, pagesize=A4)
+        doc = SimpleDocTemplate(
+            output,
+            pagesize=A4,
+            leftMargin=0.5 * inch,
+            rightMargin=0.5 * inch,
+            topMargin=0.75 * inch,
+            bottomMargin=0.75 * inch
+        )
         elements = []
         styles = getSampleStyleSheet()
+        normal_style = ParagraphStyle(
+            'NormalWrap',
+            parent=styles['Normal'],
+            fontSize=8,
+            leading=10,
+            spaceAfter=4
+        )
+        header_style = ParagraphStyle(
+            'HeaderWrap',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            alignment=TA_CENTER
+        )
         
         # Custom styles
         title_style = ParagraphStyle(
@@ -656,7 +741,7 @@ def export_to_pdf():
         )
         
         # Add title
-        tenant_name = session.get('tenant_name', 'Fleet Manager')
+        tenant_name = get_company_name()
         elements.append(Paragraph(f"{tenant_name}", title_style))
         elements.append(Paragraph(report_title, styles['Heading2']))
         elements.append(Spacer(1, 12))
@@ -668,26 +753,42 @@ def export_to_pdf():
         
         # Prepare table data
         if report_data:
-            # Get headers
-            headers = list(report_data[0].keys())
-            table_data = [headers]
+            # Get headers and enforce order for maintenance reports
+            if report_type == 'maintenance_costs':
+                headers = ['date', 'vehicle_number', 'make', 'model', 'description', 'service_type', 'cost']
+            else:
+                headers = list(report_data[0].keys())
+            table_data = [[Paragraph(str(h).replace('_', ' ').upper(), header_style) for h in headers]]
             
             # Add rows (limit to reasonable size)
             for row in report_data[:100]:  # Limit to 100 rows for PDF
-                table_data.append([str(row.get(h, '')) for h in headers])
+                row_values = []
+                for h in headers:
+                    row_values.append(Paragraph(str(row.get(h, '')), normal_style))
+                table_data.append(row_values)
+            
+            # Calculate widths to fit A4 page
+            usable_width = doc.width
+            if report_type == 'maintenance_costs' and len(headers) == 7:
+                col_widths = [0.8 * inch, 1.0 * inch, 0.8 * inch, 0.8 * inch, 2.2 * inch, 1.0 * inch, 0.7 * inch]
+            else:
+                default_width = usable_width / max(len(headers), 1)
+                col_widths = [default_width] * len(headers)
             
             # Create table
-            table = Table(table_data)
+            table = Table(table_data, colWidths=col_widths, repeatRows=1)
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498DB')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
             
             elements.append(table)
