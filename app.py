@@ -7,6 +7,9 @@ import json
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Ensure Python builtin functions used in templates are available in Jinja
+app.jinja_env.globals['abs'] = abs
+
 # Template filters
 @app.template_filter('from_json')
 def from_json_filter(value):
