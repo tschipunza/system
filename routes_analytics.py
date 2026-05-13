@@ -140,14 +140,13 @@ def get_maintenance_cost_summary():
                     SELECT SUM(sm2.cost)
                     FROM service_maintenance sm2
                     WHERE sm2.vehicle_id = v.id
-                      AND DATE(sm2.service_date) <= %s
                 ), 0) AS cumulative_cost
             FROM service_maintenance sm
             JOIN vehicles v ON sm.vehicle_id = v.id
             WHERE DATE(sm.service_date) BETWEEN %s AND %s
         """
 
-        params = [start_date, end_date, end_date, start_date, end_date]
+        params = [start_date, end_date, start_date, end_date]
         if vehicle_ids:
             placeholders = ','.join(['%s'] * len(vehicle_ids))
             query += f" AND sm.vehicle_id IN ({placeholders})"
@@ -198,14 +197,13 @@ def get_fuel_cost_summary():
                     SELECT SUM(fr2.fuel_cost)
                     FROM fuel_records fr2
                     WHERE fr2.vehicle_id = v.id
-                      AND fr2.fuel_date <= %s
                 ), 0) AS cumulative_cost
             FROM fuel_records fr
             JOIN vehicles v ON fr.vehicle_id = v.id
             WHERE DATE(fr.fuel_date) BETWEEN %s AND %s
         """
 
-        params = [start_date, end_date, end_date, start_date, end_date]
+        params = [start_date, end_date, start_date, end_date]
         if vehicle_ids:
             placeholders = ','.join(['%s'] * len(vehicle_ids))
             query += f" AND fr.vehicle_id IN ({placeholders})"
