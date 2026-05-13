@@ -131,36 +131,34 @@ def get_maintenance_cost_summary():
     try:
         query = """
             SELECT
-                sm.service_date AS date,
+                CONCAT(%s, ' - ', %s) AS date,
                 v.vehicle_number,
                 v.make,
                 v.model,
-                COALESCE(sm.cost, 0) AS cost,
+                SUM(COALESCE(sm.cost, 0)) AS cost,
                 COALESCE((
                     SELECT SUM(sm2.cost)
                     FROM service_maintenance sm2
-                    WHERE sm2.vehicle_id = sm.vehicle_id
-                      AND DATE(sm2.service_date) <= DATE(sm.service_date)
+                    WHERE sm2.vehicle_id = v.id
+                      AND DATE(sm2.service_date) <= %s
                 ), 0) AS cumulative_cost
             FROM service_maintenance sm
             JOIN vehicles v ON sm.vehicle_id = v.id
             WHERE DATE(sm.service_date) BETWEEN %s AND %s
         """
 
-        params = [start_date, end_date]
+        params = [start_date, end_date, end_date, start_date, end_date]
         if vehicle_ids:
             placeholders = ','.join(['%s'] * len(vehicle_ids))
             query += f" AND sm.vehicle_id IN ({placeholders})"
             params.extend(vehicle_ids)
 
-        query += "\n            ORDER BY sm.service_date ASC, v.vehicle_number ASC\n        "
+        query += "\n            GROUP BY v.id, v.vehicle_number, v.make, v.model\n            ORDER BY v.vehicle_number ASC\n        "
 
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
 
         for row in rows:
-            if isinstance(row['date'], (date, datetime)):
-                row['date'] = row['date'].strftime('%Y-%m-%d')
             row['cost'] = float(row['cost'] or 0)
             row['cumulative_cost'] = float(row['cumulative_cost'] or 0)
 
@@ -191,36 +189,34 @@ def get_fuel_cost_summary():
     try:
         query = """
             SELECT
-                fr.fuel_date AS date,
+                CONCAT(%s, ' - ', %s) AS date,
                 v.vehicle_number,
                 v.make,
                 v.model,
-                COALESCE(fr.fuel_cost, 0) AS cost,
+                SUM(COALESCE(fr.fuel_cost, 0)) AS cost,
                 COALESCE((
                     SELECT SUM(fr2.fuel_cost)
                     FROM fuel_records fr2
-                    WHERE fr2.vehicle_id = fr.vehicle_id
-                      AND fr2.fuel_date <= fr.fuel_date
+                    WHERE fr2.vehicle_id = v.id
+                      AND fr2.fuel_date <= %s
                 ), 0) AS cumulative_cost
             FROM fuel_records fr
             JOIN vehicles v ON fr.vehicle_id = v.id
             WHERE DATE(fr.fuel_date) BETWEEN %s AND %s
         """
 
-        params = [start_date, end_date]
+        params = [start_date, end_date, end_date, start_date, end_date]
         if vehicle_ids:
             placeholders = ','.join(['%s'] * len(vehicle_ids))
             query += f" AND fr.vehicle_id IN ({placeholders})"
             params.extend(vehicle_ids)
 
-        query += "\n            ORDER BY fr.fuel_date ASC, v.vehicle_number ASC\n        "
+        query += "\n            GROUP BY v.id, v.vehicle_number, v.make, v.model\n            ORDER BY v.vehicle_number ASC\n        "
 
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
 
         for row in rows:
-            if isinstance(row['date'], (date, datetime)):
-                row['date'] = row['date'].strftime('%Y-%m-%d')
             row['cost'] = float(row['cost'] or 0)
             row['cumulative_cost'] = float(row['cumulative_cost'] or 0)
 
