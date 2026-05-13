@@ -633,6 +633,14 @@
                         <i class="fas fa-file-alt"></i>
                         <span>Custom Reports</span>
                     </a>
+                    <a class="menu-link {% if request.endpoint == 'analytics.maintenance_cost_summary' %}active{% endif %}" href="{{ url_for('analytics.maintenance_cost_summary') }}">
+                        <i class="fas fa-tools"></i>
+                        <span>Maintenance Cost Summary</span>
+                    </a>
+                    <a class="menu-link {% if request.endpoint == 'analytics.fuel_cost_summary' %}active{% endif %}" href="{{ url_for('analytics.fuel_cost_summary') }}">
+                        <i class="fas fa-gas-pump"></i>
+                        <span>Fuel Cost Summary</span>
+                    </a>
                     {% if can_create_scheduled_reports %}
                     <a class="menu-link {% if request.endpoint in ['analytics.scheduled_reports_list', 'analytics.create_scheduled_report', 'analytics.scheduled_report_history'] %}active{% endif %}" href="{{ url_for('analytics.scheduled_reports_list') }}">
                         <i class="fas fa-calendar-alt"></i>

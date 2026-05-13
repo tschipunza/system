@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+
+{% block title %}Fuel Cost Summary - Fleet Manager{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics-mobile.css') }}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h2><i class="fas fa-gas-pump"></i> Fuel Cost Summary</h2>
+            <p class="text-muted">View fuel cost records by period, with cumulative cost for each vehicle.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4 col-md-12 mb-3">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Period Filter</h5>
+                </div>
+                <div class="card-body">
+                    <form id="summaryFilterForm">
+                        <div class="mb-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="startDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="endDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vehicles (optional)</label>
+                            <select class="form-select" id="vehicleFilter" multiple size="6"></select>
+                            <small class="text-muted">Hold Ctrl or Shift to select multiple vehicles.</small>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="fas fa-search"></i> View Summary
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total Records</span>
+                        <strong id="totalRecords">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Total Selected Cost</span>
+                        <strong id="totalCost">0.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8 col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-table"></i> Results</h5>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-light me-2" id="exportExcelBtn" disabled>
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" id="exportPdfBtn" disabled>
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="resultsContainer" class="table-responsive">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-chart-line fa-3x mb-3"></i>
+                            <p>Select a date range to display fuel cost summary results.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentSummaryData = null;
+let currentSummaryTitle = 'Fuel Cost Summary';
+
+function getSelectedVehicleIds() {
+    const select = document.getElementById('vehicleFilter');
+    return Array.from(select.selectedOptions).map(opt => opt.value);
+}
+
+async function loadVehicles() {
+    try {
+        const response = await fetch('/api/vehicles');
+        if (!response.ok) return;
+        const vehicles = await response.json();
+        const select = document.getElementById('vehicleFilter');
+        select.innerHTML = vehicles.map(v => `
+            <option value="${v.id}">${v.vehicle_number} - ${v.make} ${v.model}</option>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading vehicles:', error);
+    }
+}
+
+async function fetchFuelSummary(startDate, endDate, vehicleIds = []) {
+    let url = `/analytics/api/fuel-cost-summary?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+    if (vehicleIds.length) {
+        url += `&vehicle_ids=${vehicleIds.join(',')}`;
+    }
+
+    const response = await fetch(url);
+    return response.json();
+}
+
+function formatMoney(value) {
+    return Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderTable(data) {
+    if (!data || !data.length) {
+        document.getElementById('resultsContainer').innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                <p>No fuel records found for the selected period.</p>
+            </div>
+        `;
+        document.getElementById('exportExcelBtn').disabled = true;
+        document.getElementById('exportPdfBtn').disabled = true;
+        return;
+    }
+
+    const rows = data.map(row => `
+        <tr>
+            <td>${row.date}</td>
+            <td>${row.vehicle_number || ''}</td>
+            <td>${row.make || ''}</td>
+            <td>${row.model || ''}</td>
+            <td class="text-end">${formatMoney(row.cost)}</td>
+            <td class="text-end">${formatMoney(row.cumulative_cost)}</td>
+        </tr>
+    `).join('');
+
+    document.getElementById('resultsContainer').innerHTML = `
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Vehicle Number</th>
+                    <th>Make</th>
+                    <th>Model</th>
+                    <th class="text-end">Cost</th>
+                    <th class="text-end">Cumulative Cost</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+    
+    currentSummaryData = data;
+    document.getElementById('exportExcelBtn').disabled = false;
+    document.getElementById('exportPdfBtn').disabled = false;
+}
+
+async function exportToExcel() {
+    if (!currentSummaryData) return;
+    
+    try {
+        const response = await fetch('/analytics/api/export-excel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                data: currentSummaryData,
+                title: currentSummaryTitle,
+                report_type: 'fuel_cost_summary'
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSummaryTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (error) {
+        alert('Error exporting to Excel: ' + error.message);
+    }
+}
+
+async function exportToPdf() {
+    if (!currentSummaryData) return;
+    
+    try {
+        const response = await fetch('/analytics/api/export-pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                data: currentSummaryData,
+                title: currentSummaryTitle,
+                report_type: 'fuel_cost_summary'
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSummaryTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (error) {
+        alert('Error exporting to PDF: ' + error.message);
+    }
+}
+
+function updateSummaryMetrics(data) {
+    const totalRecords = data.length;
+    const totalCost = data.reduce((sum, row) => sum + Number(row.cost || 0), 0);
+    document.getElementById('totalRecords').textContent = totalRecords;
+    document.getElementById('totalCost').textContent = formatMoney(totalCost);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const endDateEl = document.getElementById('endDate');
+    const startDateEl = document.getElementById('startDate');
+    const today = new Date();
+    const prior = new Date();
+    prior.setDate(prior.getDate() - 30);
+    endDateEl.value = today.toISOString().split('T')[0];
+    startDateEl.value = prior.toISOString().split('T')[0];
+    
+    document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+    document.getElementById('exportPdfBtn').addEventListener('click', exportToPdf);
+    
+    loadVehicles();
+
+    document.getElementById('summaryFilterForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const startDate = startDateEl.value;
+        const endDate = endDateEl.value;
+        const vehicleIds = getSelectedVehicleIds();
+
+        document.getElementById('resultsContainer').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-danger" role="status"></div>
+                <p class="mt-3">Loading fuel cost summary...</p>
+            </div>
+        `;
+
+        const result = await fetchFuelSummary(startDate, endDate, vehicleIds);
+        if (!result.success) {
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="alert alert-danger">${result.error || 'Unable to fetch summary data.'}</div>
+            `;
+            return;
+        }
+        renderTable(result.data);
+        updateSummaryMetrics(result.data);
+    });
+});
+</script>
+{% endblock %}

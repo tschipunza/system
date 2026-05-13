@@ -95,6 +95,142 @@ def dashboard():
     audit_logger.log_action('view_dashboard', 'dashboard')
     return render_template('analytics_dashboard.html')
 
+@analytics_bp.route('/maintenance-cost-summary')
+@login_required
+@require_permission('view_dashboard')
+def maintenance_cost_summary():
+    """Maintenance cost summary report page"""
+    audit_logger.log_action('view_report', 'maintenance_cost_summary')
+    return render_template('maintenance_cost_summary.html')
+
+@analytics_bp.route('/fuel-cost-summary')
+@login_required
+@require_permission('view_dashboard')
+def fuel_cost_summary():
+    """Fuel cost summary report page"""
+    audit_logger.log_action('view_report', 'fuel_cost_summary')
+    return render_template('fuel_cost_summary.html')
+
+@analytics_bp.route('/api/maintenance-cost-summary')
+@login_required
+def get_maintenance_cost_summary():
+    """Get maintenance cost summary data for selected period"""
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    vehicle_ids_raw = request.args.get('vehicle_ids', '')
+
+    if not start_date or not end_date:
+        return jsonify({'error': 'Please provide start_date and end_date'}), 400
+
+    vehicle_ids = []
+    if vehicle_ids_raw:
+        vehicle_ids = [vid for vid in vehicle_ids_raw.split(',') if vid.strip().isdigit()]
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT
+                sm.service_date AS date,
+                v.vehicle_number,
+                v.make,
+                v.model,
+                COALESCE(sm.cost, 0) AS cost,
+                COALESCE((
+                    SELECT SUM(sm2.cost)
+                    FROM service_maintenance sm2
+                    WHERE sm2.vehicle_id = sm.vehicle_id
+                      AND DATE(sm2.service_date) <= DATE(sm.service_date)
+                ), 0) AS cumulative_cost
+            FROM service_maintenance sm
+            JOIN vehicles v ON sm.vehicle_id = v.id
+            WHERE DATE(sm.service_date) BETWEEN %s AND %s
+        """
+
+        params = [start_date, end_date]
+        if vehicle_ids:
+            placeholders = ','.join(['%s'] * len(vehicle_ids))
+            query += f" AND sm.vehicle_id IN ({placeholders})"
+            params.extend(vehicle_ids)
+
+        query += "\n            ORDER BY sm.service_date ASC, v.vehicle_number ASC\n        "
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        for row in rows:
+            if isinstance(row['date'], (date, datetime)):
+                row['date'] = row['date'].strftime('%Y-%m-%d')
+            row['cost'] = float(row['cost'] or 0)
+            row['cumulative_cost'] = float(row['cumulative_cost'] or 0)
+
+        return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@analytics_bp.route('/api/fuel-cost-summary')
+@login_required
+def get_fuel_cost_summary():
+    """Get fuel cost summary data for selected period"""
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    vehicle_ids_raw = request.args.get('vehicle_ids', '')
+
+    if not start_date or not end_date:
+        return jsonify({'error': 'Please provide start_date and end_date'}), 400
+
+    vehicle_ids = []
+    if vehicle_ids_raw:
+        vehicle_ids = [vid for vid in vehicle_ids_raw.split(',') if vid.strip().isdigit()]
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT
+                fr.fuel_date AS date,
+                v.vehicle_number,
+                v.make,
+                v.model,
+                COALESCE(fr.fuel_cost, 0) AS cost,
+                COALESCE((
+                    SELECT SUM(fr2.fuel_cost)
+                    FROM fuel_records fr2
+                    WHERE fr2.vehicle_id = fr.vehicle_id
+                      AND fr2.fuel_date <= fr.fuel_date
+                ), 0) AS cumulative_cost
+            FROM fuel_records fr
+            JOIN vehicles v ON fr.vehicle_id = v.id
+            WHERE DATE(fr.fuel_date) BETWEEN %s AND %s
+        """
+
+        params = [start_date, end_date]
+        if vehicle_ids:
+            placeholders = ','.join(['%s'] * len(vehicle_ids))
+            query += f" AND fr.vehicle_id IN ({placeholders})"
+            params.extend(vehicle_ids)
+
+        query += "\n            ORDER BY fr.fuel_date ASC, v.vehicle_number ASC\n        "
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        for row in rows:
+            if isinstance(row['date'], (date, datetime)):
+                row['date'] = row['date'].strftime('%Y-%m-%d')
+            row['cost'] = float(row['cost'] or 0)
+            row['cumulative_cost'] = float(row['cumulative_cost'] or 0)
+
+        return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 @analytics_bp.route('/api/dashboard-stats')
 @login_required
 def get_dashboard_stats():
@@ -617,6 +753,14 @@ def export_to_excel():
         df = pd.DataFrame(report_data)
         if report_type == 'maintenance_costs':
             column_order = ['date', 'vehicle_number', 'make', 'model', 'description', 'service_type', 'cost']
+        elif report_type == 'maintenance_costs_summary':
+            column_order = ['date', 'vehicle_number', 'make', 'model', 'cost', 'cumulative_cost']
+        elif report_type == 'fuel_cost_summary':
+            column_order = ['date', 'vehicle_number', 'make', 'model', 'cost', 'cumulative_cost']
+        else:
+            column_order = None
+
+        if column_order:
             ordered_columns = [col for col in column_order if col in df.columns]
             if ordered_columns:
                 df = df[ordered_columns]
@@ -753,9 +897,13 @@ def export_to_pdf():
         
         # Prepare table data
         if report_data:
-            # Get headers and enforce order for maintenance reports
+            # Get headers and enforce order for maintenance and summary reports
             if report_type == 'maintenance_costs':
                 headers = ['date', 'vehicle_number', 'make', 'model', 'description', 'service_type', 'cost']
+            elif report_type == 'maintenance_costs_summary':
+                headers = ['date', 'vehicle_number', 'make', 'model', 'cost', 'cumulative_cost']
+            elif report_type == 'fuel_cost_summary':
+                headers = ['date', 'vehicle_number', 'make', 'model', 'cost', 'cumulative_cost']
             else:
                 headers = list(report_data[0].keys())
             table_data = [[Paragraph(str(h).replace('_', ' ').upper(), header_style) for h in headers]]
@@ -771,6 +919,8 @@ def export_to_pdf():
             usable_width = doc.width
             if report_type == 'maintenance_costs' and len(headers) == 7:
                 col_widths = [0.8 * inch, 1.0 * inch, 0.8 * inch, 0.8 * inch, 2.2 * inch, 1.0 * inch, 0.7 * inch]
+            elif report_type in ['maintenance_costs_summary', 'fuel_cost_summary'] and len(headers) == 6:
+                col_widths = [0.8 * inch, 1.0 * inch, 0.8 * inch, 0.8 * inch, 1.0 * inch, 1.2 * inch]
             else:
                 default_width = usable_width / max(len(headers), 1)
                 col_widths = [default_width] * len(headers)
