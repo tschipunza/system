@@ -2107,11 +2107,8 @@ def edit_service(service_id):
         service_date = request.form.get('service_date')
         service_provider = request.form.get('service_provider')
         cost = request.form.get('cost')
-        odometer_reading = request.form.get('odometer_reading') or None
-        next_service_date = request.form.get('next_service_date') or None
-        next_service_mileage = request.form.get('next_service_mileage') or None
-        description = request.form.get('description')
-        parts_replaced = request.form.get('parts_replaced')
+            cost = cost.strip() if cost is not None else None
+            cost = cost or None
         status = request.form.get('status')
         notes = request.form.get('notes')
         
